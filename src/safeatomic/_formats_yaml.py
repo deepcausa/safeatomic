@@ -73,6 +73,7 @@ def atomic_yaml_dump(
     *,
     default_flow_style: bool = False,
     sort_keys: bool = False,
+    encoding: str | _Unset = _UNSET,
     concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
     preserve_metadata: bool = True,
     write_checksum: bool = False,
@@ -106,6 +107,8 @@ def atomic_yaml_dump(
         retries: Number of lock-acquisition retries. Defaults to ``0``.
         delay: Delay in seconds between retries. Defaults to ``0.1``.
         session: Optional lock session object. Defaults to ``None``.
+        encoding: Text encoding for the output file. Defaults to
+            ``"utf-8"`` (resolved via ``safeatomic_config`` when omitted).
         safety: Safety policy (``"strict"``, ``"warn"``,
             ``"best_effort"``). Defaults to ``"strict"``.
 
@@ -125,7 +128,7 @@ def atomic_yaml_dump(
     write_atomic(
         path,
         text,
-        encoding="utf-8",
+        encoding=encoding,
         concurrency=concurrency,
         preserve_metadata=preserve_metadata,
         write_checksum=write_checksum,
@@ -199,6 +202,7 @@ def atomic_yaml_dump_ruamel(
     data: object,
     *,
     yaml_instance: _RuamelYAML | None = None,
+    encoding: str | _Unset = _UNSET,
     concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
     preserve_metadata: bool = True,
     write_checksum: bool = False,
@@ -237,6 +241,8 @@ def atomic_yaml_dump_ruamel(
         retries: Number of lock-acquisition retries. Defaults to ``0``.
         delay: Delay in seconds between retries. Defaults to ``0.1``.
         session: Optional lock session object. Defaults to ``None``.
+        encoding: Text encoding for the output file. Defaults to
+            ``"utf-8"`` (resolved via ``safeatomic_config`` when omitted).
         safety: Safety policy (``"strict"``, ``"warn"``,
             ``"best_effort"``). Defaults to ``"strict"``.
 
@@ -267,7 +273,7 @@ def atomic_yaml_dump_ruamel(
     write_atomic(
         path,
         text,
-        encoding="utf-8",
+        encoding=encoding,
         concurrency=concurrency,
         preserve_metadata=preserve_metadata,
         write_checksum=write_checksum,

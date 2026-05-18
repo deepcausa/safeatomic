@@ -548,18 +548,25 @@ def write_atomic_bytes(
 def _read_verify_checksum(target: Path, checksum_algo: str) -> str:
     """Load checksum sidecar and return the expected hash.
 
+    Aligned with ``verify_checksum`` standalone: a missing or unreadable
+    sidecar raises :exc:`FileNotFoundError`, not
+    :exc:`ChecksumMismatchError`. The two surfaces (read-with-checksum
+    and standalone verify) share the same error contract for the
+    "sidecar absent" condition.
+
     Raises:
-        ChecksumMismatchError: If the sidecar is missing or unreadable.
+        FileNotFoundError: If the checksum sidecar is missing or
+            unreadable. The data file itself is not affected.
     """
     from safeatomic._checksum import get_checksum_info  # noqa: PLC0415
+    from safeatomic._paths import checksum_path  # noqa: PLC0415
 
     info = get_checksum_info(target)
     if info is None:
-        raise ChecksumMismatchError(
-            path=target,
-            expected="",
-            actual="(sidecar missing)",
-        )
+        sidecar = checksum_path(target)
+        msg = f"checksum sidecar not found: {sidecar}"
+        raise FileNotFoundError(msg)
+    _ = checksum_algo  # acknowledged: algo is encoded inside the sidecar
     return info.hash
 
 
@@ -631,8 +638,9 @@ def read_atomic(
         path: Source file path.
         encoding: Text encoding. Defaults to ``"utf-8"``.
         check_checksum: Verify against the checksum sidecar before
-            returning. Raises :exc:`ChecksumMismatchError` on mismatch
-            or missing sidecar.
+            returning. Raises :exc:`ChecksumMismatchError` on mismatch;
+            raises :exc:`FileNotFoundError` if the sidecar is absent
+            (same contract as standalone :func:`verify_checksum`).
         checksum_algo: Hash algorithm. Defaults to ``"sha256"``.
         safety: Safety policy gate.
 
@@ -641,7 +649,9 @@ def read_atomic(
 
     Raises:
         ChecksumMismatchError: If ``check_checksum=True`` and the digest
-            does not match or the sidecar is absent.
+            does not match.
+        FileNotFoundError: If ``check_checksum=True`` and the checksum
+            sidecar is missing (aligned with ``verify_checksum``).
         UnsupportedEnvironmentError: Under ``safety="strict"``.
         OSError: I/O failures.
     """
@@ -684,7 +694,9 @@ def read_atomic_bytes(
         Raw file content.
 
     Raises:
-        ChecksumMismatchError: Checksum mismatch or missing sidecar.
+        ChecksumMismatchError: Checksum digest mismatch.
+        FileNotFoundError: If ``check_checksum=True`` and the checksum
+            sidecar is missing.
         UnsupportedEnvironmentError: Under ``safety="strict"``.
         OSError: I/O failures.
     """
@@ -773,8 +785,16 @@ def move_atomic(
         msg = f"destination already exists: {dst_path}"
         raise FileExistsError(errno.EEXIST, msg, str(dst_path))
 
-    # Step 5: atomic replace.
-    src_path.replace(dst_path)
+    # Step 5: atomic replace. Normalise raw OSError(EXDEV) into
+    # CrossDeviceAtomicityError - the pre-stat may have returned 0 on
+    # FileNotFoundError (deferred path), and the kernel can still surface
+    # EXDEV on rename. Contract: move_atomic NEVER leaks EXDEV.
+    try:
+        src_path.replace(dst_path)
+    except OSError as err:
+        if err.errno == errno.EXDEV:
+            raise CrossDeviceAtomicityError(src=src_path, dst=dst_path) from err
+        raise
 
     # Step 6: fsync dst parent dir.
     _fsync_dir(dst_path.parent)
@@ -852,6 +872,7 @@ class AtomicWriter:
         self._tmp: Path | None = None
         self._fd: int | None = None
         self._committed: bool = False
+        self._aborted: bool = False
 
     # ------------------------------------------------------------------
     # Context manager protocol
@@ -897,9 +918,14 @@ class AtomicWriter:
         exc_val: BaseException | None,
         exc_tb: object,
     ) -> None:
-        """Commit on clean exit; abort on exception."""
+        """Commit on clean exit; abort on exception.
+
+        If :meth:`abort` was already called inside the ``with`` block,
+        the auto-commit is skipped (no double action, no RuntimeError).
+        Same for explicit :meth:`commit`.
+        """
         if exc_type is None:
-            if not self._committed:
+            if not self._committed and not self._aborted:
                 self.commit()
         else:
             self.abort()
@@ -1040,6 +1066,7 @@ class AtomicWriter:
             with contextlib.suppress(OSError):
                 self._tmp.unlink()
             self._tmp = None
+        self._aborted = True
         self._release_lock()
 
     def _release_lock(self) -> None:
@@ -1117,19 +1144,23 @@ class AtomicReader:
         return self
 
     def _verify_checksum_before_open(self) -> None:
-        """Verify the checksum sidecar before opening the file descriptor."""
+        """Verify the checksum sidecar before opening the file descriptor.
+
+        Aligned with ``verify_checksum`` standalone and ``read_atomic``:
+        a missing sidecar raises ``FileNotFoundError``; only a digest
+        mismatch raises ``ChecksumMismatchError``.
+        """
         from safeatomic._checksum import (  # noqa: PLC0415
             compute_hash_file,
             get_checksum_info,
         )
+        from safeatomic._paths import checksum_path  # noqa: PLC0415
 
         info = get_checksum_info(self._target)
         if info is None:
-            raise ChecksumMismatchError(
-                path=self._target,
-                expected="",
-                actual="(sidecar missing)",
-            )
+            sidecar = checksum_path(self._target)
+            msg = f"checksum sidecar not found: {sidecar}"
+            raise FileNotFoundError(msg)
         actual = compute_hash_file(self._target, algo=self._checksum_algo)
         if actual != info.hash:
             raise ChecksumMismatchError(

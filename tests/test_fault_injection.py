@@ -456,15 +456,16 @@ def test_read_atomic_check_checksum_fails_without_sidecar(tmp_path: Path) -> Non
 
     This pins the TLA+ ``SafeAtomicChecksum`` insight: the read API
     validates the **observed pair** ``(target, sidecar)`` at call time.
-    A target without a sidecar is not a Match - it is a Mismatch by
-    construction (sidecar missing).
+    A target without a sidecar cannot produce a Match - it raises
+    :class:`FileNotFoundError` for the missing sidecar, aligned with
+    the standalone ``verify_checksum`` contract.
     """
     target = tmp_path / "state.txt"
     write_atomic(target, "value", concurrency="none", safety=_BE)
     # No checksum requested on write -> sidecar absent.
     assert checksum_files(tmp_path) == []
 
-    with pytest.raises(ChecksumMismatchError):
+    with pytest.raises(FileNotFoundError, match="checksum sidecar not found"):
         read_atomic(target, check_checksum=True, safety=_BE)
 
 

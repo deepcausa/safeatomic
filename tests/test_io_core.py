@@ -610,9 +610,18 @@ class TestChecksumIntegration:
             read_atomic_bytes(target, check_checksum=True)
 
     def test_missing_sidecar_detected(self, tmp_path: Path) -> None:
+        """Missing sidecar surfaces as FileNotFoundError, aligned with verify_checksum.
+
+        The previous drift (``read_atomic(check_checksum=True)`` raising
+        ``ChecksumMismatchError(actual="(sidecar missing)")`` while
+        standalone ``verify_checksum`` raised ``FileNotFoundError``) was
+        resolved: both surfaces now raise ``FileNotFoundError`` for the
+        absent sidecar, reserving ``ChecksumMismatchError`` for genuine
+        digest mismatches.
+        """
         target = tmp_path / "no-sidecar.bin"
         write_atomic_bytes(target, b"payload", concurrency="none")  # no sidecar
-        with pytest.raises(ChecksumMismatchError):
+        with pytest.raises(FileNotFoundError, match="checksum sidecar not found"):
             read_atomic_bytes(target, check_checksum=True)
 
     def test_explicit_checksum_algo_works(self, tmp_path: Path) -> None:

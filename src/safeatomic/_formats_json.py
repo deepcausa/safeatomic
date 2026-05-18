@@ -46,6 +46,7 @@ def atomic_json_dump(
     indent: int | None = 2,
     sort_keys: bool = False,
     ensure_ascii: bool = False,
+    encoding: str | _Unset = _UNSET,
     concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
     preserve_metadata: bool = True,
     write_checksum: bool = False,
@@ -82,6 +83,8 @@ def atomic_json_dump(
         delay: Delay in seconds between retries. Defaults to ``0.1``.
         session: Optional lock session object (passed through to
             ``write_atomic``). Defaults to ``None``.
+        encoding: Text encoding for the output file. Defaults to
+            ``"utf-8"`` (resolved via ``safeatomic_config`` when omitted).
         safety: Safety policy (``"strict"``, ``"warn"``,
             ``"best_effort"``). Defaults to ``"strict"``.
 
@@ -97,7 +100,7 @@ def atomic_json_dump(
     write_atomic(
         path,
         text,
-        encoding="utf-8",
+        encoding=encoding,
         concurrency=concurrency,
         preserve_metadata=preserve_metadata,
         write_checksum=write_checksum,

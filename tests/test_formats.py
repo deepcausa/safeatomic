@@ -181,18 +181,18 @@ def test_json_check_checksum_fails_on_corruption(tmp_path: Path) -> None:
 
 
 def test_json_check_checksum_without_sidecar_raises(tmp_path: Path) -> None:
-    """Drift note: the briefing said this case raises FileNotFoundError
-    (the standalone ``verify_checksum`` contract). However,
-    ``read_atomic(check_checksum=True)`` routes through
-    ``_io_core._read_verify_checksum``, which raises
-    :class:`ChecksumMismatchError` with ``actual="(sidecar missing)"``.
-    Two different error types for the same logical condition is a
-    contract drift; reported in the final summary. This test pins the
-    *actual* behaviour so the suite is meaningful.
+    """Sidecar-missing now raises ``FileNotFoundError`` consistently.
+
+    The drift between ``read_atomic(check_checksum=True)`` (which used
+    to raise ``ChecksumMismatchError(actual="(sidecar missing)")``) and
+    standalone ``verify_checksum`` (which always raised
+    ``FileNotFoundError``) was resolved in favour of
+    ``FileNotFoundError`` on both paths. The two surfaces now share a
+    single error contract for the "sidecar absent" condition.
     """
     target = tmp_path / "data.json"
     atomic_json_dump(target, {"x": 1})  # no checksum
-    with pytest.raises(ChecksumMismatchError, match="sidecar missing"):
+    with pytest.raises(FileNotFoundError, match="checksum sidecar not found"):
         atomic_json_load(target, check_checksum=True)
 
 
@@ -647,29 +647,37 @@ def test_json_dump_accepts_checksum_algo(tmp_path: Path) -> None:
 
 
 def test_safeatomic_config_encoding_affects_json_load(tmp_path: Path) -> None:
-    """``encoding`` resolved via safeatomic_config applies to load paths.
+    """``encoding`` from safeatomic_config propagates on both dump and load.
 
-    Note (drift): the JSON DUMP path hardcodes ``encoding="utf-8"`` in
-    its internal ``write_atomic`` call, so ``safeatomic_config(encoding=...)``
-    does NOT change how dump writes bytes. It DOES affect how load
-    decodes bytes, because ``atomic_json_load`` forwards ``encoding`` to
-    ``read_atomic``. We test the observable load-side behaviour.
+    The previous asymmetry (load forwarded ``encoding`` to ``read_atomic``
+    while dump hardcoded ``encoding="utf-8"`` in its internal
+    ``write_atomic`` call) was resolved: ``atomic_json_dump`` now accepts
+    an ``encoding`` kwarg and forwards it to ``write_atomic``, so
+    ``safeatomic_config(encoding=...)`` affects both surfaces. Principle
+    14 still applies: explicit kwarg trumps context-var.
     """
+    # 1. Loading under safeatomic_config(encoding="utf-8") matches default.
     target = tmp_path / "data.json"
-    # Write valid JSON via dump (utf-8 bytes).
-    atomic_json_dump(target, {"k": "café"})
-
-    # Loading the same file under safeatomic_config(encoding="utf-8") is
-    # equivalent to default behaviour.
+    atomic_json_dump(target, {"k": "café"})  # default utf-8
     with safeatomic_config(encoding="utf-8"):
         assert atomic_json_load(target) == {"k": "café"}
 
-    # Explicit kwarg trumps context-var (principle 14):
+    # 2. Explicit kwarg trumps context-var on read.
     with safeatomic_config(encoding="latin-1"):
-        # Explicit utf-8 wins; non-ascii survives.
         target2 = tmp_path / "explicit.json"
-        atomic_json_dump(target2, {"k": "café"})
+        atomic_json_dump(target2, {"k": "café"}, encoding="utf-8")
         assert atomic_json_load(target2, encoding="utf-8") == {"k": "café"}
+
+    # 3. config encoding now reaches the dump path: writing under
+    #    safeatomic_config(encoding="utf-16") produces utf-16 bytes
+    #    (observable via raw read_bytes BOM).
+    target3 = tmp_path / "utf16.json"
+    with safeatomic_config(encoding="utf-16"):
+        atomic_json_dump(target3, {"k": "v"})
+    raw = target3.read_bytes()
+    assert raw.startswith((b"\xff\xfe", b"\xfe\xff")), (
+        "utf-16 BOM expected on dump under safeatomic_config(encoding='utf-16')"
+    )
 
 
 def test_safeatomic_config_checksum_algo_propagates(tmp_path: Path) -> None:
