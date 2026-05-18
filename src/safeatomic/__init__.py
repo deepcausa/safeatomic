@@ -33,7 +33,7 @@ internal and may change without notice.
 
 from __future__ import annotations
 
-__version__ = "2.0.0.dev0"
+__version__ = "2.0.0"
 
 # ---------------------------------------------------------------------------
 # Re-exports (43 public names)
