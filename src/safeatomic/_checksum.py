@@ -159,6 +159,16 @@ def verify_checksum(
         (in ``_io_core``) where a mismatch means the returned data
         cannot be trusted.
 
+        The returned ``bool`` is a statement about the **observed
+        pair** ``(data, expected_hash)`` at the moment of the call.
+        If a concurrent writer updates either side after this call
+        returns, that does not retroactively invalidate the result;
+        it just means the next call may see something different. The
+        TLA+ ``SafeAtomicChecksum`` model in
+        ``safeatomic-project/formal/SafeAtomicChecksum.tla`` formalises
+        this property: ``Match`` only ever holds for a consistent
+        observed pair, never for an inconsistent or future-state pair.
+
     Args:
         path: Path to the file to verify.
         expected: Expected hex digest (case-insensitive). If ``None``,

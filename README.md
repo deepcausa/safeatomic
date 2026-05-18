@@ -153,9 +153,26 @@ contract.
 - **Guarantees (3):** `inspect_guarantees`, `GuaranteeReport`, `Environment`
 - **Doctor (3):** `doctor`, `DoctorReport`, `DoctorCheck`
 - **Config (1):** `safeatomic_config` — `ContextVar`-backed defaults for `encoding`, `checksum_algo`, `retries`, `delay`. Guarantee-affecting kwargs (`safety`, `concurrency`, `preserve_metadata`, `write_checksum`) cannot be set via config and must remain explicit at call sites.
-- **Exceptions + warnings (7):** `SafeAtomicError`, `UnsupportedEnvironmentError`, `UnsupportedEnvironmentWarning`, `ChecksumMismatchError`, `CrossDeviceAtomicityError`, `LockError`
+- **Exceptions + warnings (6):** `SafeAtomicError`, `UnsupportedEnvironmentError`, `UnsupportedEnvironmentWarning`, `ChecksumMismatchError`, `CrossDeviceAtomicityError`, `LockError`
 
 See [`docs/`](docs/) for the full reference.
+
+## Formal model
+
+The core protocol — atomic replacement, cooperative lock lifecycle,
+and checksum-sidecar verification — is model-checked with TLA+ under
+documented filesystem and runtime assumptions. The models live in the
+companion `safeatomic-project/formal/` directory and verify the
+abstract protocol only. They do **not** verify the Python
+implementation, the operating system, the filesystem, hardware, the
+serializers, or any deployment environment. `os.replace` atomicity,
+`fsync` durability, and PID semantics are assumptions of the model,
+not theorems about your machine.
+
+In practice this means: TLA+ fixes the contract; the test suite
+exercises the implementation against that contract; `doctor()` and
+`inspect_guarantees()` report the actual capabilities of the specific
+path you are using.
 
 ## What it is not
 

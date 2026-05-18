@@ -501,6 +501,21 @@ def release_lock(path: str | PathLike[str]) -> bool:
     Raises:
         LockError: Only for structural I/O failures during unlink
             (rare). Ordinary "not yours" cases return ``False``.
+
+    Note:
+        There is a narrow TOCTOU window between ``inspect_lock`` and
+        ``unlink``: if the lockfile is force-released and re-acquired by
+        a different process between those two calls, this function may
+        remove the new acquisition. PID + hostname matching make the
+        window very narrow in practice (a colliding acquirer must
+        somehow appear with the same PID on the same host), and the
+        contract here is cooperative-only. A future v2.1 may introduce
+        an explicit epoch token to close this window entirely; the
+        TLA+ ``SafeAtomicLock`` model in
+        ``safeatomic-project/formal/SafeAtomicLock.tla`` models the
+        epoch-token-corrected protocol and is the source of truth for
+        the intended semantics. See also
+        ``safeatomic-project/design/adjacencies.md``.
     """
     info = inspect_lock(path)
     if not info.exists or info.corrupt:
