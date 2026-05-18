@@ -11,6 +11,7 @@ rename. Reported in the final summary.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -24,20 +25,22 @@ from safeatomic._paths import (
     tmp_path_for,
 )
 
+PathFn = Callable[[Path | str], Path]
+
 # ---------------------------------------------------------------------------
 # Argument coercion: str and Path both accepted
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("fn", [lock_path, checksum_path, tmp_path_for])
-def test_functions_accept_str(fn, tmp_path: Path) -> None:
+def test_functions_accept_str(fn: PathFn, tmp_path: Path) -> None:
     target = tmp_path / "file.json"
     result = fn(str(target))
     assert isinstance(result, Path)
 
 
 @pytest.mark.parametrize("fn", [lock_path, checksum_path, tmp_path_for])
-def test_functions_accept_path(fn, tmp_path: Path) -> None:
+def test_functions_accept_path(fn: PathFn, tmp_path: Path) -> None:
     target = tmp_path / "file.json"
     result = fn(target)
     assert isinstance(result, Path)
@@ -45,7 +48,7 @@ def test_functions_accept_path(fn, tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("fn", [lock_path, checksum_path, tmp_path_for])
 def test_str_and_path_inputs_agree_for_deterministic_fns(
-    fn,
+    fn: PathFn,
     tmp_path: Path,
 ) -> None:
     """lock_path and checksum_path are deterministic; tmp_path_for is not.

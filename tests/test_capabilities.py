@@ -13,8 +13,12 @@ from __future__ import annotations
 
 import sys
 import typing
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 from safeatomic._capabilities import (
     Capability,
@@ -60,7 +64,7 @@ EXPECTED_FS_CLASS_TOKENS = {
 
 
 @pytest.fixture(autouse=True)
-def _reset_cache():
+def _reset_cache() -> Generator[None, None, None]:
     """Reset the st_dev cache before each test to avoid order coupling."""
     clear_cache()
     yield
