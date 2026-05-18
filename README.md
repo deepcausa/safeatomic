@@ -71,6 +71,32 @@ print(report.guarantees["WriterExclusion"])       # "Guaranteed"
 print(report.guarantees["IntegrityDetection"])    # "Guaranteed"
 ```
 
+`inspect_guarantees` returns the **normative** view: given the detected
+filesystem class, which guarantees does the matrix promise? It is cheap
+enough to call before every operation.
+
+For an **empirical** view that actually exercises the syscalls — useful
+at application startup or for diagnostics — use `doctor`:
+
+```python
+from safeatomic import doctor
+
+report = doctor(
+    "/data/state.json",
+    destructive=True,                                  # run write probes
+    require={"AtomicVisibility", "CrashDurability"},   # required guarantees
+)
+if not report.ok:
+    raise RuntimeError(report.summary())
+```
+
+`doctor` probes the parent directory (existence, writability, exclusive
+create with `0o600`, `fsync` on file and directory, `os.replace`, JSON
+sidecar round-trip, checksum sidecar round-trip). Probe files use the
+`.safeatomic-doctor-` prefix and are cleaned up in `finally`. Without
+`destructive=True`, probe-only checks are skipped and reported as
+`unknown` — the report still gives you the matrix view.
+
 ## Safety policy
 
 Every operation accepts a `safety` keyword to control how the library
@@ -116,7 +142,7 @@ pip install safeatomic[ruamel]
 
 ## API surface
 
-The full public API is 40 names exported from `safeatomic`. Internal
+The full public API is 44 names exported from `safeatomic`. Internal
 modules are underscore-prefixed and are **not** part of the public
 contract.
 
@@ -125,6 +151,8 @@ contract.
 - **Checksum (6):** `compute_hash_file`, `compute_hash_data`, `verify_checksum`, `write_checksum_file`, `get_checksum_info`, `ChecksumInfo`
 - **Formats (8):** `atomic_json_dump`/`atomic_json_load`, `atomic_yaml_dump`/`atomic_yaml_load`, `atomic_yaml_dump_ruamel`/`atomic_yaml_load_ruamel` (require `[ruamel]` extra), `atomic_toml_dump`/`atomic_toml_load`
 - **Guarantees (3):** `inspect_guarantees`, `GuaranteeReport`, `Environment`
+- **Doctor (3):** `doctor`, `DoctorReport`, `DoctorCheck`
+- **Config (1):** `safeatomic_config` — `ContextVar`-backed defaults for `encoding`, `checksum_algo`, `retries`, `delay`. Guarantee-affecting kwargs (`safety`, `concurrency`, `preserve_metadata`, `write_checksum`) cannot be set via config and must remain explicit at call sites.
 - **Exceptions + warnings (7):** `SafeAtomicError`, `UnsupportedEnvironmentError`, `UnsupportedEnvironmentWarning`, `ChecksumMismatchError`, `CrossDeviceAtomicityError`, `LockError`
 
 See [`docs/`](docs/) for the full reference.
