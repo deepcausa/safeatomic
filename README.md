@@ -142,7 +142,7 @@ pip install safeatomic[ruamel]
 
 ## API surface
 
-The full public API is 44 names exported from `safeatomic`. Internal
+The full public API is 43 names exported from `safeatomic`. Internal
 modules are underscore-prefixed and are **not** part of the public
 contract.
 

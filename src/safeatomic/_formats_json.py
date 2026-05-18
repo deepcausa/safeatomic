@@ -1,18 +1,22 @@
 """Atomic JSON read/write helpers for safeatomic v2.
 
-# TODO(_io_core): import will resolve once _io_core lands
+Thin wrappers around :func:`safeatomic._io_core.write_atomic` and
+:func:`safeatomic._io_core.read_atomic` that handle JSON serialisation
+and deserialisation.
 
-Thin wrappers around ``write_atomic`` / ``read_atomic`` (in ``_io_core``,
-not yet available) that handle JSON serialisation and deserialisation.
-Until ``_io_core`` lands, the import below is guarded with
-``# type: ignore[import-not-found]``.
+Config-driven defaults (``encoding``, ``checksum_algo``, ``retries``,
+``delay``) propagate through :func:`safeatomic._config.safeatomic_config`
+via the ``_UNSET`` sentinel: callers may either pass an explicit value
+or omit the argument and let the ContextVar / hard-coded default win.
 
 Cross-refs:
 - design/api-v2-proposal.md (atomic_json_dump / atomic_json_load)
 - design/implementation-discipline.md principle 10 (invariants before
   performance; do not inline I/O logic here, delegate to _io_core)
+- design/implementation-discipline.md principle 14 (config-driven
+  degradation must reflect in inspect_guarantees and doctor)
 - _checksum.py (checksum sidecar protocol used by read_atomic internally)
-- _constants.py (SafetyPolicy, DEFAULT_SAFETY, DEFAULT_CHECKSUM_ALGO)
+- _constants.py (SafetyPolicy, DEFAULT_SAFETY)
 """
 
 from __future__ import annotations
@@ -20,11 +24,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from safeatomic._constants import (
-    DEFAULT_CHECKSUM_ALGO,
-    DEFAULT_CONCURRENCY,
-    DEFAULT_SAFETY,
-)
+from safeatomic._config import _UNSET, _Unset
+from safeatomic._constants import DEFAULT_CONCURRENCY, DEFAULT_SAFETY
 from safeatomic._io_core import read_atomic, write_atomic
 
 if TYPE_CHECKING:
@@ -48,9 +49,9 @@ def atomic_json_dump(
     concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
     preserve_metadata: bool = True,
     write_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
-    retries: int = 0,
-    delay: float = 0.1,
+    checksum_algo: str | _Unset = _UNSET,
+    retries: int | _Unset = _UNSET,
+    delay: float | _Unset = _UNSET,
     session: str | None = None,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> None:
@@ -116,9 +117,9 @@ def atomic_json_dump(
 def atomic_json_load(
     path: str | os.PathLike[str],
     *,
-    encoding: str = "utf-8",
+    encoding: str | _Unset = _UNSET,
     check_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
+    checksum_algo: str | _Unset = _UNSET,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> object:
     """Read ``path`` atomically and deserialise the contents as JSON.

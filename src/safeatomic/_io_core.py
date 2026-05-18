@@ -55,11 +55,9 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
+from safeatomic._config import _UNSET, _Unset, resolve_config
 from safeatomic._constants import (
-    DEFAULT_CHECKSUM_ALGO,
     DEFAULT_CONCURRENCY,
-    DEFAULT_DELAY,
-    DEFAULT_RETRIES,
     DEFAULT_SAFETY,
     ConcurrencyPolicy,
     SafetyPolicy,
@@ -381,13 +379,13 @@ def write_atomic(
     path: str | PathLike[str],
     data: str,
     *,
-    encoding: str = "utf-8",
+    encoding: str | _Unset = _UNSET,
     concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
     preserve_metadata: bool = True,
     write_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
-    retries: int = DEFAULT_RETRIES,
-    delay: float = DEFAULT_DELAY,
+    checksum_algo: str | _Unset = _UNSET,
+    retries: int | _Unset = _UNSET,
+    delay: float | _Unset = _UNSET,
     session: str | None = None,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> None:
@@ -438,6 +436,14 @@ def write_atomic(
             required guarantees are not available.
         OSError: For all other I/O failures.
     """
+    # Step 0: resolve config (explicit > ContextVar > hard-coded default).
+    encoding, checksum_algo, retries, delay = resolve_config(
+        encoding=encoding,
+        checksum_algo=checksum_algo,
+        retries=retries,
+        delay=delay,
+    )
+
     # Step 1: resolve path.
     target = _resolve(path)
     raw = data.encode(encoding)
@@ -471,9 +477,9 @@ def write_atomic_bytes(
     concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
     preserve_metadata: bool = True,
     write_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
-    retries: int = DEFAULT_RETRIES,
-    delay: float = DEFAULT_DELAY,
+    checksum_algo: str | _Unset = _UNSET,
+    retries: int | _Unset = _UNSET,
+    delay: float | _Unset = _UNSET,
     session: str | None = None,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> None:
@@ -501,6 +507,14 @@ def write_atomic_bytes(
         UnsupportedEnvironmentError: Under ``safety="strict"``.
         OSError: Other I/O failures.
     """
+    # Step 0: resolve config.
+    _encoding, checksum_algo, retries, delay = resolve_config(
+        encoding=_UNSET,
+        checksum_algo=checksum_algo,
+        retries=retries,
+        delay=delay,
+    )
+
     # Step 1: resolve path.
     target = _resolve(path)
 
@@ -598,9 +612,9 @@ def _read_core(
 def read_atomic(
     path: str | PathLike[str],
     *,
-    encoding: str = "utf-8",
+    encoding: str | _Unset = _UNSET,
     check_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
+    checksum_algo: str | _Unset = _UNSET,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> str:
     """Read *path* atomically and return its content as a string.
@@ -631,6 +645,14 @@ def read_atomic(
         UnsupportedEnvironmentError: Under ``safety="strict"``.
         OSError: I/O failures.
     """
+    # Step 0: resolve config.
+    encoding, checksum_algo, _retries, _delay = resolve_config(
+        encoding=encoding,
+        checksum_algo=checksum_algo,
+        retries=_UNSET,
+        delay=_UNSET,
+    )
+
     target = _resolve(path)
     required = _REQUIRED_READ_CHECKSUM if check_checksum else _REQUIRED_READ
     raw = _read_core(
@@ -647,7 +669,7 @@ def read_atomic_bytes(
     path: str | PathLike[str],
     *,
     check_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
+    checksum_algo: str | _Unset = _UNSET,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> bytes:
     """Read *path* atomically and return its content as bytes.
@@ -666,6 +688,14 @@ def read_atomic_bytes(
         UnsupportedEnvironmentError: Under ``safety="strict"``.
         OSError: I/O failures.
     """
+    # Step 0: resolve config.
+    _encoding, checksum_algo, _retries, _delay = resolve_config(
+        encoding=_UNSET,
+        checksum_algo=checksum_algo,
+        retries=_UNSET,
+        delay=_UNSET,
+    )
+
     target = _resolve(path)
     required = _REQUIRED_READ_CHECKSUM if check_checksum else _REQUIRED_READ
     return _read_core(
@@ -795,19 +825,27 @@ class AtomicWriter:
         concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
         preserve_metadata: bool = True,
         write_checksum: bool = False,
-        checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
-        retries: int = DEFAULT_RETRIES,
-        delay: float = DEFAULT_DELAY,
+        checksum_algo: str | _Unset = _UNSET,
+        retries: int | _Unset = _UNSET,
+        delay: float | _Unset = _UNSET,
         session: str | None = None,
         safety: SafetyPolicy = DEFAULT_SAFETY,
     ) -> None:
+        # Resolve config at construction (explicit > ContextVar > default).
+        _encoding, resolved_algo, resolved_retries, resolved_delay = resolve_config(
+            encoding=_UNSET,
+            checksum_algo=checksum_algo,
+            retries=retries,
+            delay=delay,
+        )
+
         self._target = _resolve(path)
         self._concurrency = concurrency
         self._preserve_metadata = preserve_metadata
         self._write_checksum = write_checksum
-        self._checksum_algo = checksum_algo
-        self._retries = retries
-        self._delay = delay
+        self._checksum_algo = resolved_algo
+        self._retries = resolved_retries
+        self._delay = resolved_delay
         self._session = session
         self._safety = safety
 
@@ -1040,12 +1078,20 @@ class AtomicReader:
         path: str | PathLike[str],
         *,
         check_checksum: bool = False,
-        checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
+        checksum_algo: str | _Unset = _UNSET,
         safety: SafetyPolicy = DEFAULT_SAFETY,
     ) -> None:
+        # Resolve config at construction (explicit > ContextVar > default).
+        _encoding, resolved_algo, _retries, _delay = resolve_config(
+            encoding=_UNSET,
+            checksum_algo=checksum_algo,
+            retries=_UNSET,
+            delay=_UNSET,
+        )
+
         self._target = _resolve(path)
         self._check_checksum = check_checksum
-        self._checksum_algo = checksum_algo
+        self._checksum_algo = resolved_algo
         self._safety = safety
 
         self._fobj: BinaryIO | None = None

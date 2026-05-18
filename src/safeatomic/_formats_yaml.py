@@ -27,11 +27,8 @@ from typing import IO, TYPE_CHECKING, Protocol
 
 import yaml
 
-from safeatomic._constants import (
-    DEFAULT_CHECKSUM_ALGO,
-    DEFAULT_CONCURRENCY,
-    DEFAULT_SAFETY,
-)
+from safeatomic._config import _UNSET, _Unset
+from safeatomic._constants import DEFAULT_CONCURRENCY, DEFAULT_SAFETY
 from safeatomic._io_core import read_atomic, write_atomic
 
 if TYPE_CHECKING:
@@ -79,9 +76,9 @@ def atomic_yaml_dump(
     concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
     preserve_metadata: bool = True,
     write_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
-    retries: int = 0,
-    delay: float = 0.1,
+    checksum_algo: str | _Unset = _UNSET,
+    retries: int | _Unset = _UNSET,
+    delay: float | _Unset = _UNSET,
     session: str | None = None,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> None:
@@ -143,9 +140,9 @@ def atomic_yaml_dump(
 def atomic_yaml_load(
     path: str | os.PathLike[str],
     *,
-    encoding: str = "utf-8",
+    encoding: str | _Unset = _UNSET,
     check_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
+    checksum_algo: str | _Unset = _UNSET,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> object:
     """Read ``path`` atomically and deserialise the contents as YAML.
@@ -205,9 +202,9 @@ def atomic_yaml_dump_ruamel(
     concurrency: ConcurrencyPolicy = DEFAULT_CONCURRENCY,
     preserve_metadata: bool = True,
     write_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
-    retries: int = 0,
-    delay: float = 0.1,
+    checksum_algo: str | _Unset = _UNSET,
+    retries: int | _Unset = _UNSET,
+    delay: float | _Unset = _UNSET,
     session: str | None = None,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> None:
@@ -286,9 +283,9 @@ def atomic_yaml_load_ruamel(
     path: str | os.PathLike[str],
     *,
     yaml_instance: _RuamelYAML | None = None,
-    encoding: str = "utf-8",
+    encoding: str | _Unset = _UNSET,
     check_checksum: bool = False,
-    checksum_algo: str = DEFAULT_CHECKSUM_ALGO,
+    checksum_algo: str | _Unset = _UNSET,
     safety: SafetyPolicy = DEFAULT_SAFETY,
 ) -> object:
     """Read ``path`` atomically and deserialise with ruamel.yaml.
