@@ -364,22 +364,25 @@ def test_parent_fsync_failure_after_replace_does_not_rollback(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Step 12 (parent-dir fsync) failure is suppressed by ``_fsync_dir``.
+    """Step 12 (parent-dir fsync) failure under ``best_effort`` is silent.
 
-    Contract (``_io_core`` docstring): "Step 12 fails -> file IS visible;
-    log warning only, no removal." This test pins that behaviour by
-    forcing ``_fsync_dir`` to fail and verifying:
+    Contract (ADR-0011 + ``_io_core`` docstring): when ``_fsync_dir``
+    fails *after* the replace, the file IS visible and no rollback is
+    attempted. Under ``safety="best_effort"`` (this test) the failure
+    is silent — no exception, no warning. The ``strict`` and ``warn``
+    branches of the same dispatch are pinned by dedicated regressions
+    in ``test_regressions_v2_0_bugfixes.py``.
+
+    This test verifies, with a stub that *records* invocation but does
+    not itself fail, that:
 
       - the new content is visible (replace already happened),
       - no rollback is attempted,
       - no orphan tmp remains,
       - the operation does not raise.
 
-    Caveat documented in this test: the operation returns *normally* even
-    though the durability fsync was not confirmed. CrashDurability is
-    therefore "best-effort" with respect to the directory entry on this
-    code path. Callers needing stricter durability must inspect the log
-    or use ``doctor()``.
+    A separate regression simulates a real ``OSError`` from inside
+    ``_fsync_dir`` to exercise the dispatch logic itself.
     """
 
     target = tmp_path / "state.txt"
@@ -387,13 +390,11 @@ def test_parent_fsync_failure_after_replace_does_not_rollback(
 
     fsync_dir_calls: list[Path] = []
 
-    def fail_fsync_dir(directory: Path) -> None:
+    def fail_fsync_dir(directory: Path, *, safety: str = "best_effort") -> None:
+        # Record arguments so we can assert _fsync_dir was reached and
+        # that the call site forwarded the operation's safety policy.
         fsync_dir_calls.append(directory)
-        # _fsync_dir in the real code already suppresses errors; we
-        # mimic that contract here while flagging that it was reached
-        # AFTER the visibility point. The test does NOT raise from
-        # inside _fsync_dir because doing so would diverge from the
-        # documented "log warning only" contract.
+        assert safety == "best_effort"
 
     monkeypatch.setattr(_io_core, "_fsync_dir", fail_fsync_dir)
 

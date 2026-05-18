@@ -30,7 +30,9 @@ Write protocol (14 steps, non-negotiable)
    log warning on ``OSError`` (best-effort only).
 10. Same-device defensive check.
 11. ``os.replace(tmp, target)`` - atomic visibility point.
-12. fsync parent directory; suppress failure, log warning only.
+12. fsync parent directory; dispatch by ``safety`` per ADR-0011
+    (strict propagates OSError, warn emits UnsupportedEnvironmentWarning,
+    best_effort silent). No rollback regardless: file is already visible.
 13. Write checksum sidecar if ``write_checksum``; wrap failure in
     :exc:`~safeatomic._exceptions.SafeAtomicError`.
 14. Release lock in ``finally`` if ``concurrency == "lock"``.
@@ -40,7 +42,9 @@ Cleanup semantics
 
 - Steps 4-10 fail -> unlink tmp (suppress ``OSError``), re-raise.
 - Step 11 fails -> unlink tmp (suppress ``OSError``), re-raise.
-- Step 12 fails -> file IS visible; log warning only, no removal.
+- Step 12 fails -> file IS visible; ADR-0011 dispatch on ``safety``:
+  strict re-raises OSError (no rollback), warn emits
+  UnsupportedEnvironmentWarning, best_effort is silent.
 - Step 13 fails -> file IS visible; raise per contract, no removal.
 - ``release_lock`` always runs in ``finally``.
 """
@@ -164,24 +168,87 @@ def _check_safety(
         raise UnsupportedEnvironmentError(msg)
 
 
-def _fsync_dir(directory: Path) -> None:
-    """Fsync a directory, suppressing all failures with a warning.
+def _fsync_dir(directory: Path, *, safety: SafetyPolicy = "best_effort") -> None:
+    """Fsync *directory*; behaviour depends on *safety* (ADR-0011).
 
-    Per the write protocol step 12: the file is already visible at this
-    point; we must not remove it. Failure here is logged as a warning only.
+    The replace has already happened at this point: the file IS visible.
+    What is at stake is **CrashDurability**, not visibility: if the parent
+    directory's metadata is not fsync'd, a crash before the OS flushes
+    the directory entry can leave the new inode reachable only via the
+    inode cache, or — worse — leave the old name pointing at the new
+    inode without the new dirent being on stable storage.
+
+    Per ADR-0011 (parent directory fsync failure):
+
+    - ``strict``:      propagate :class:`OSError` from ``os.open`` /
+                       ``os.fsync``. CrashDurability cannot be claimed
+                       silently when the syscall reports a failure.
+                       No rollback is attempted: the file is already
+                       visible, and the caller's contract is "content
+                       may be new, CrashDurability is not confirmed".
+    - ``warn``:        emit :class:`UnsupportedEnvironmentWarning`
+                       describing the degradation and continue.
+    - ``best_effort``: continue silently (no logger warning, no warning).
+
+    The exception path under ``strict`` does NOT remove the freshly
+    placed file. That would violate the AtomicVisibility contract
+    (the replace at step 11 committed the new content) and the
+    operator-recorded rule that says "if the replace already happened,
+    do not attempt rollback impossible".
+
+    Args:
+        directory: Parent directory to fsync.
+        safety: Caller's safety policy. Defaults to ``"best_effort"``
+            so internal callers (e.g. checksum sidecar writes that
+            recurse through write_atomic) keep the historical
+            silent-best-effort shape unless they opt in.
     """
     try:
         dir_fd = os.open(directory, os.O_RDONLY)
     except OSError as exc:
-        logger.warning("fsync_dir: could not open directory %s for fsync: %s", directory, exc)
+        _fsync_dir_handle_failure(directory, exc, safety, stage="open")
         return
+
     try:
-        os.fsync(dir_fd)
-    except OSError as exc:
-        logger.warning("fsync_dir: fsync failed on %s: %s", directory, exc)
+        try:
+            os.fsync(dir_fd)
+        except OSError as exc:
+            _fsync_dir_handle_failure(directory, exc, safety, stage="fsync")
     finally:
         with contextlib.suppress(OSError):
             os.close(dir_fd)
+
+
+def _fsync_dir_handle_failure(
+    directory: Path,
+    exc: OSError,
+    safety: SafetyPolicy,
+    *,
+    stage: str,
+) -> None:
+    """Dispatch parent-directory fsync failure per ADR-0011.
+
+    Separated from :func:`_fsync_dir` so the open- and fsync-failure
+    paths share the same strict/warn/best_effort contract.
+    """
+    if safety == "strict":
+        # Propagate the raw OSError. The file is already visible; the
+        # caller's contract is "content may be new, CrashDurability not
+        # confirmed". No rollback is attempted (ADR-0011).
+        raise exc
+    if safety == "warn":
+        msg = (
+            f"fsync_dir: parent directory {directory} failed at {stage} "
+            f"({exc!r}); CrashDurability for the just-replaced file "
+            f"cannot be confirmed."
+        )
+        warnings.warn(msg, UnsupportedEnvironmentWarning, stacklevel=4)
+        return
+    # best_effort: silent. Keep a debug-level note for diagnostics; do
+    # not surface anything at WARNING. (Historical behaviour was
+    # logger.warning; ADR-0011 demotes best_effort to silent so callers
+    # who explicitly opted out of strict do not get noisy logs.)
+    logger.debug("fsync_dir: %s failed at %s: %s (safety=best_effort)", directory, stage, exc)
 
 
 def _write_bytes_to_fd(fd: int, data: bytes) -> None:
@@ -367,8 +434,12 @@ def _write_core(
         if concurrency == "lock":
             _release_lock_suppress(target)
 
-    # Step 12: fsync parent dir (file IS visible; errors are warnings only).
-    _fsync_dir(target.parent)
+    # Step 12: fsync parent dir. File IS visible at this point. Behaviour
+    # is dispatched by ADR-0011: strict propagates the OSError (no
+    # rollback), warn emits UnsupportedEnvironmentWarning, best_effort
+    # is silent. No rollback is attempted regardless: the replace at
+    # step 11 already committed the new content.
+    _fsync_dir(target.parent, safety=safety)
 
     # Step 13: write checksum sidecar if requested.
     if write_checksum:
@@ -796,8 +867,8 @@ def move_atomic(
             raise CrossDeviceAtomicityError(src=src_path, dst=dst_path) from err
         raise
 
-    # Step 6: fsync dst parent dir.
-    _fsync_dir(dst_path.parent)
+    # Step 6: fsync dst parent dir (ADR-0011 dispatch on safety).
+    _fsync_dir(dst_path.parent, safety=safety)
 
 
 # ---------------------------------------------------------------------------
@@ -1038,8 +1109,8 @@ class AtomicWriter:
 
         self._committed = True
 
-        # fsync parent dir (file is visible; warnings only).
-        _fsync_dir(self._target.parent)
+        # fsync parent dir. File IS visible. ADR-0011 dispatch on safety.
+        _fsync_dir(self._target.parent, safety=self._safety)
 
         # Write checksum sidecar if requested.
         if self._write_checksum:

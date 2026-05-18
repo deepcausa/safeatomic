@@ -31,6 +31,8 @@ The four bugs (all surfaced by Tier 3/4 test suites in batch 5460ad6):
 from __future__ import annotations
 
 import errno
+import os
+import stat
 from pathlib import Path
 from unittest.mock import patch
 
@@ -39,12 +41,15 @@ import pytest
 from safeatomic import (
     AtomicWriter,
     CrossDeviceAtomicityError,
+    UnsupportedEnvironmentWarning,
+    _io_core,
     atomic_json_dump,
     atomic_yaml_dump,
     atomic_yaml_dump_ruamel,
     move_atomic,
     read_atomic_bytes,
     safeatomic_config,
+    write_atomic,
     write_atomic_bytes,
 )
 
@@ -191,3 +196,111 @@ def test_read_atomic_check_checksum_missing_sidecar_raises_filenotfounderror(
     write_atomic_bytes(target, b"payload", concurrency="none")
     with pytest.raises(FileNotFoundError, match="checksum sidecar not found"):
         read_atomic_bytes(target, check_checksum=True)
+
+
+# ---------------------------------------------------------------------------
+# ADR-0011: parent-directory fsync failure dispatch by safety policy
+#
+# These three regressions pin the strict / warn / best_effort branches of
+# ``_fsync_dir`` after the replace at step 11. In all three cases the file
+# is already visible; no rollback is attempted regardless of branch. The
+# only dimension that varies is *how the failure is reported*:
+#
+#   - strict      -> propagate the raw OSError to the caller
+#   - warn        -> emit UnsupportedEnvironmentWarning and continue
+#   - best_effort -> silent (no exception, no warning)
+#
+# We synthesize the failure by patching ``os.fsync`` at the module level
+# in ``_io_core`` and only failing when the fd refers to a directory.
+# This avoids interfering with the file-content fsync at step 7.
+# ---------------------------------------------------------------------------
+
+
+def _patch_fsync_to_fail_on_dirs(
+    monkeypatch: pytest.MonkeyPatch,
+    err: OSError,
+) -> list[int]:
+    """Force ``os.fsync`` to raise *err* when the fd refers to a directory.
+
+    Returns a list that will be appended to each time the directory
+    branch fires, so tests can assert the patched path was reached.
+    """
+    real_fsync = os.fsync
+    real_fstat = os.fstat
+    dir_fsync_calls: list[int] = []
+
+    def fake_fsync(fd: int) -> None:
+        st = real_fstat(fd)
+        if stat.S_ISDIR(st.st_mode):
+            dir_fsync_calls.append(fd)
+            raise err
+        real_fsync(fd)
+
+    monkeypatch.setattr(_io_core.os, "fsync", fake_fsync)
+    return dir_fsync_calls
+
+
+def test_parent_fsync_failure_under_strict_propagates_oserror(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-0011 strict branch: parent-dir fsync OSError propagates.
+
+    The file IS visible (the replace at step 11 already committed),
+    therefore the contract is "content may be new, CrashDurability
+    cannot be confirmed". No rollback is attempted.
+    """
+    target = tmp_path / "strict.bin"
+    err = OSError(errno.EIO, "synthetic parent-dir fsync failure")
+    dir_calls = _patch_fsync_to_fail_on_dirs(monkeypatch, err)
+
+    with pytest.raises(OSError) as excinfo:
+        write_atomic(target, "payload", concurrency="none", safety="strict")
+
+    assert excinfo.value.errno == errno.EIO
+    assert dir_calls, "expected directory fsync to be reached"
+    # File IS visible despite the failure; no rollback.
+    assert target.exists()
+    assert target.read_text() == "payload"
+
+
+def test_parent_fsync_failure_under_warn_emits_unsupported_environment_warning(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-0011 warn branch: parent-dir fsync failure emits warning, continues."""
+    target = tmp_path / "warn.bin"
+    err = OSError(errno.EIO, "synthetic parent-dir fsync failure")
+    dir_calls = _patch_fsync_to_fail_on_dirs(monkeypatch, err)
+
+    with pytest.warns(UnsupportedEnvironmentWarning, match="parent directory"):
+        write_atomic(target, "payload", concurrency="none", safety="warn")
+
+    assert dir_calls, "expected directory fsync to be reached"
+    assert target.read_text() == "payload"
+
+
+def test_parent_fsync_failure_under_best_effort_is_silent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    recwarn: pytest.WarningsRecorder,
+) -> None:
+    """ADR-0011 best_effort branch: parent-dir fsync failure is silent.
+
+    Neither an exception nor an :class:`UnsupportedEnvironmentWarning`
+    is surfaced. Diagnostics remain available at DEBUG level via the
+    library logger; we do not assert log content here to keep the test
+    decoupled from the logging configuration.
+    """
+    target = tmp_path / "best-effort.bin"
+    err = OSError(errno.EIO, "synthetic parent-dir fsync failure")
+    dir_calls = _patch_fsync_to_fail_on_dirs(monkeypatch, err)
+
+    write_atomic(target, "payload", concurrency="none", safety="best_effort")
+
+    assert dir_calls, "expected directory fsync to be reached"
+    assert target.read_text() == "payload"
+    unsupported = [w for w in recwarn.list if issubclass(w.category, UnsupportedEnvironmentWarning)]
+    assert not unsupported, (
+        f"best_effort must not emit UnsupportedEnvironmentWarning; got {unsupported!r}"
+    )

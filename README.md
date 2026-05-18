@@ -110,7 +110,55 @@ write_atomic(path, data, safety="best_effort")  # execute silently (caller takes
 
 `move_atomic` always refuses cross-device moves
 (`CrossDeviceAtomicityError`), regardless of `safety` — the function name
-promises atomicity, and silent fallback would break that.
+promises atomicity, and silent fallback would break that. If the kernel
+returns `EXDEV` only at the final `os.replace` step (after a successful
+pre-check), the raw `OSError` is normalised into
+`CrossDeviceAtomicityError` with `__cause__` set to the original
+`OSError` for diagnostics. See ADR-0008.
+
+### Parent-directory fsync after replace
+
+After `write_atomic` and `move_atomic` have made the new file visible
+(`os.replace`), the library fsyncs the parent directory to confirm the
+directory-entry change has hit stable storage. If that final fsync
+fails:
+
+- `safety="strict"` — the underlying `OSError` is re-raised. The file
+  is already visible; no rollback is attempted (the replace already
+  committed the new content). The contract is "content may be new,
+  CrashDurability is **not** confirmed".
+- `safety="warn"` — `UnsupportedEnvironmentWarning` is emitted and the
+  operation completes normally.
+- `safety="best_effort"` — silent.
+
+See ADR-0011.
+
+### Checksum sidecars
+
+`write_atomic(..., checksum=True)` writes a `.sha256` sidecar next to
+the target. On the read side:
+
+- `verify_checksum(path)` — returns `True` on match, `False` on
+  genuine digest mismatch, and raises `FileNotFoundError` when the
+  sidecar is absent.
+- `read_atomic(path, check_checksum=True)` — returns the payload on
+  match, raises `ChecksumMismatchError` on genuine digest mismatch,
+  and raises `FileNotFoundError` when the sidecar is absent.
+
+Absence and mismatch are distinct failure modes and are reported with
+distinct exception types. See ADR-0009.
+
+### Symbolic links
+
+v2.0 declares `SymlinkPolicy = Unspecified`. The behaviour of
+`write_atomic`, `move_atomic`, `read_atomic`, and the format helpers
+when *target* (or any path component) is a symlink is **not part of
+the public contract** and may change in a future minor release.
+
+Callers with symlink-sensitive workloads must resolve or reject
+symlinks themselves *before* calling into safeatomic — for example
+with `Path.resolve(strict=True)` followed by an explicit
+`Path.is_symlink()` check on the original argument. See ADR-0010.
 
 ## Supported environments
 
