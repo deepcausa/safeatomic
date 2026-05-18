@@ -1,0 +1,193 @@
+[build-system]
+requires = ["hatchling >= 1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "safeatomic"
+version = "2.0.0.dev0"
+description = "A safer persistence layer for plain files: atomic writes, cooperative locks, formal guarantees."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "safeatomic contributors" },
+]
+keywords = [
+    "atomic",
+    "file",
+    "persistence",
+    "lock",
+    "checksum",
+    "fsync",
+    "durability",
+    "yaml",
+    "json",
+    "toml",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Filesystems",
+    "Typing :: Typed",
+]
+dependencies = [
+    "PyYAML >= 6.0",
+    "tomli-w >= 1.0",
+]
+
+[project.optional-dependencies]
+# Optional formats. Each extra is a single concern; do not bundle.
+ruamel = [
+    "ruamel.yaml >= 0.18",
+]
+dev = [
+    "mypy >= 1.13",
+    "ruff >= 0.8",
+    "pre-commit >= 3.5",
+]
+test = [
+    "pytest >= 8.0",
+    "pytest-cov >= 5.0",
+    "hypothesis >= 6.100",
+    # Tests exercise the ruamel branch; include the extra here so
+    # `pip install -e .[test]` is sufficient for the full suite.
+    "ruamel.yaml >= 0.18",
+]
+all = [
+    "safeatomic[ruamel]",
+]
+
+[project.urls]
+Homepage = "https://gitlab.dev.nonphy.tech/libs/safeatomic"
+Repository = "https://gitlab.dev.nonphy.tech/libs/safeatomic"
+Issues = "https://gitlab.dev.nonphy.tech/libs/safeatomic/-/issues"
+Changelog = "https://gitlab.dev.nonphy.tech/libs/safeatomic/-/blob/main/CHANGELOG.md"
+
+[project.scripts]
+safeatomic = "safeatomic._cli_smoke:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/safeatomic"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/safeatomic/**",
+    "tests/**",
+    "docs/**",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "pyproject.toml",
+]
+
+# ---------------------------------------------------------------------------
+# Tool configurations
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_explicit = true
+disallow_any_generics = true
+show_error_codes = true
+pretty = true
+files = ["src/safeatomic"]
+
+[[tool.mypy.overrides]]
+# - ruamel.yaml: optional extra; not always installed during type-check.
+# - yaml: PyYAML ships no full stubs.
+# - tomli_w: no stubs.
+module = ["ruamel.*", "yaml.*", "tomli_w.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "SIM",    # flake8-simplify
+    "PTH",    # flake8-use-pathlib
+    "RUF",    # ruff-specific
+    "T20",    # flake8-print (no print() in library code)
+    "TCH",    # flake8-type-checking
+    "RET",    # flake8-return
+    "PIE",    # flake8-pie
+    "PL",     # pylint subset
+    "TRY",    # tryceratops
+    "S",      # flake8-bandit
+    "N",      # pep8-naming
+    "D",      # pydocstyle
+]
+ignore = [
+    "D203",   # one-blank-line-before-class (conflicts with D211)
+    "D213",   # multi-line-summary-second-line (conflicts with D212)
+    "PLR0913", # too many arguments (we use kwargs intentionally)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",   # use of assert (fine in tests)
+    "D",      # no docstring enforcement in tests
+    "PLR2004", # magic values in comparisons (fine in tests)
+]
+"src/safeatomic/_cli_smoke.py" = [
+    "T20",    # print() allowed in CLI
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "requires_root: marks tests requiring root privileges (filesystem mounting)",
+    "fault_injection: marks tests that inject faults (process kills, OS errors)",
+]
+
+[tool.coverage.run]
+source = ["src/safeatomic"]
+branch = true
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
