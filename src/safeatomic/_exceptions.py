@@ -71,9 +71,7 @@ class ChecksumMismatchError(SafeAtomicError):
     actual: str
 
     def __init__(self, path: Path, expected: str, actual: str) -> None:
-        super().__init__(
-            f"checksum mismatch for {path}: expected {expected}, got {actual}"
-        )
+        super().__init__(f"checksum mismatch for {path}: expected {expected}, got {actual}")
         self.path = path
         self.expected = expected
         self.actual = actual

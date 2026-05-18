@@ -51,11 +51,11 @@ Platform = Literal[
 
 FilesystemClass = Literal[
     "local_posix_persistent",  # ext4, xfs, btrfs, apfs, zfs, …
-    "local_posix_memory",      # tmpfs, ramfs
-    "network",                 # nfs, smbfs, cifs, sshfs, fuse-over-net
-    "windows",                 # ntfs, refs
-    "object_store",            # s3fs, gcsfuse via fuse
-    "unknown",                 # could not classify
+    "local_posix_memory",  # tmpfs, ramfs
+    "network",  # nfs, smbfs, cifs, sshfs, fuse-over-net
+    "windows",  # ntfs, refs
+    "object_store",  # s3fs, gcsfuse via fuse
+    "unknown",  # could not classify
 ]
 
 SymlinkPolicy = Literal["unspecified"]
