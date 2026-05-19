@@ -3,6 +3,12 @@
 Thank you for considering a contribution. This document covers what you
 need to know to submit a useful change.
 
+> **Agents and first-time contributors:** read
+> [`AGENTS.md`](AGENTS.md) at the repository root first. It lists the
+> hard invariants (frozen `__all__` at 43 names, the eight guarantees,
+> the branch-protection rules, the API surprises) that this document
+> assumes you already know.
+
 ## Before you start
 
 - For non-trivial changes, open an issue first to discuss the approach.
@@ -50,7 +56,14 @@ pytest                         # tests (fast suite)
 pytest -m slow                 # property/invariant tests
 ```
 
-All four must pass for a PR to be merged.
+All four must pass for a PR to be merged. CI runs the test suite on
+both Python 3.12 and 3.13. The two interpreters can diverge in
+subtle ways — for example `pathlib.Path.resolve()` was rewritten in
+3.13 and no longer calls `Path.stat()` internally, so monkeypatched
+`stat` tests that look fine on 3.13 can recurse and crash on 3.12.
+If a test passes locally on 3.13 but fails on the 3.12 CI job,
+inspect the test (not the production code) before assuming a
+library bug.
 
 ## Tests
 
@@ -148,6 +161,17 @@ The PR description should explain:
 - Why it is needed
 - What testing was performed
 - Any guarantee-matrix implications (link to ADR-0006 if relevant)
+
+## Releasing
+
+Releases are cut by maintainers, not by general contributors. The full
+procedure — version bump, CHANGELOG, branch protection, GitHub
+Release, manual PyPI deploy approval, post-publish verification — is
+documented in [`docs/release-process.md`](docs/release-process.md).
+
+If you propose a change that should appear in the next release, just
+add an entry under `## [Unreleased]` in `CHANGELOG.md` in your PR.
+The maintainer collects all such entries when cutting the release.
 
 ## Code of conduct
 
