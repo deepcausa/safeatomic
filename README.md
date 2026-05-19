@@ -3,6 +3,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/safeatomic.svg)](https://pypi.org/project/safeatomic/)
 [![Python versions](https://img.shields.io/pypi/pyversions/safeatomic.svg)](https://pypi.org/project/safeatomic/)
 [![CI](https://github.com/deepcausa/safeatomic/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/deepcausa/safeatomic/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/deepcausa/safeatomic/branch/main/graph/badge.svg)](https://codecov.io/gh/deepcausa/safeatomic)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/deepcausa/safeatomic/blob/main/LICENSE)
 
 > Plain-file persistence for Python with explicit, composable, runtime-inspectable guarantees.

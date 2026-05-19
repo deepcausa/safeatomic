@@ -20,7 +20,20 @@ Sections used:
 
 ## [Unreleased]
 
-*(no changes yet)*
+### Added
+
+- CI: code coverage measurement and reporting.
+  - `pytest` now runs with `--cov --cov-report=term-missing:skip-covered
+    --cov-report=xml --cov-report=json` on both Python 3.12 and 3.13.
+  - Each matrix job writes a coverage summary to `$GITHUB_STEP_SUMMARY`
+    showing percentage, covered/total statements, covered/total
+    branches, missing lines, and partial branches.
+  - The Python 3.12 job uploads `coverage.xml` as a workflow artifact
+    (`coverage-xml`, 30-day retention, via `actions/upload-artifact`
+    v7.0.1) and posts it to Codecov.
+  - The Codecov upload uses `fail_ci_if_error: false` so a Codecov
+    outage does not block CI.
+- `README.md` now also shows a Codecov badge.
 
 ## [2.0.2] - 2026-05-19
 
