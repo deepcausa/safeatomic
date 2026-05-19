@@ -127,7 +127,7 @@ design rationale lives in the private `safeatomic-project` repository.
 If your change affects user-visible behaviour, update:
 
 - The relevant section of `README.md`
-- `docs/api.md` if signatures or behaviour change
+- `docs/api-reference.md` if signatures or behaviour change
 - `CHANGELOG.md` under the appropriate section
 - The docstring of the affected callable
 
