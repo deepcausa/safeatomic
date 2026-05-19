@@ -275,6 +275,22 @@ The `formal/` directory is included in the source distribution but
 excluded from the installed wheel, so `pip install safeatomic` stays
 code-only.
 
+## Related projects
+
+`safeatomic` is part of a small family of local persistence primitives:
+
+- [`safeatomic-rs`](https://github.com/deepcausa/safeatomic-rs) — Rust
+  sibling crate with low-level filesystem primitives: atomic replace,
+  write-once, append+fsync, rename+fsync-dir. It is not a Python
+  binding and not a 1:1 port of this API.
+- [`datawal`](https://github.com/deepcausa/datawal) — experimental
+  Rust record store built on framed append-only records, valid-prefix
+  recovery, tombstone deletes, compaction, clean export, and small
+  TLA+ models.
+
+Use `safeatomic` when the durable artefact is a whole plain file.
+Use `datawal` when the durable artefact is a sequence of records.
+
 ## What it is not
 
 - **Not a database.** No queries, no schema, no multi-record transactions.

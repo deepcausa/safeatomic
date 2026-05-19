@@ -25,3 +25,8 @@
 - [`examples/`](../examples/README.md) — eight runnable, self-contained examples
 - [`formal/README.md`](../formal/README.md) — per-model invariants, TLC pinning, design insights
 - [`CHANGELOG.md`](../CHANGELOG.md) — release history
+
+## Related projects
+
+- [`safeatomic-rs`](https://github.com/deepcausa/safeatomic-rs) — Rust sibling crate with low-level filesystem primitives (atomic replace, write-once, append+fsync, rename+fsync-dir). Not a Python binding.
+- [`datawal`](https://github.com/deepcausa/datawal) — experimental Rust record store for framed append-only records, valid-prefix recovery, tombstone deletes, compaction, and a bytes-based KV projection.
