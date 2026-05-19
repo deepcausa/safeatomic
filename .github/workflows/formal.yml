@@ -1,0 +1,104 @@
+name: Formal models (TLA+)
+
+# We model-check the three protocol specs in formal/ under TLC and gate
+# main on the same "No error has been found" check the developer gets
+# locally via scripts/check-formal.sh. The job is NOT in the per-PR CI
+# matrix to keep PR feedback fast; it runs on every push to main and is
+# also available on demand via workflow_dispatch.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "formal/**"
+      - "scripts/check-formal.sh"
+      - ".github/workflows/formal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# tla2tools.jar v1.7.4: pinned URL + sha256.
+# See formal/README.md for provenance.
+env:
+  TLA_TOOLS_VERSION: "1.7.4"
+  TLA_TOOLS_URL: "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+  TLA_TOOLS_SHA256: "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+
+jobs:
+  tlc:
+    name: TLC model-checking
+    runs-on: ubuntu-latest
+    # The three current specs together complete in well under a minute
+    # on GitHub-hosted runners. We still cap the job to bound any
+    # regression that escapes review.
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache tla2tools.jar
+        id: cache-tla
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.local/opt/tla+
+          # Key includes the sha256 so a future version bump invalidates the cache.
+          key: tla2tools-${{ env.TLA_TOOLS_VERSION }}-${{ env.TLA_TOOLS_SHA256 }}
+
+      - name: Download tla2tools.jar (if not cached)
+        if: steps.cache-tla.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/opt/tla+"
+          curl -fsSL "$TLA_TOOLS_URL" -o "$HOME/.local/opt/tla+/tla2tools.jar"
+
+      - name: Verify tla2tools.jar SHA-256
+        run: |
+          set -euo pipefail
+          echo "${TLA_TOOLS_SHA256}  $HOME/.local/opt/tla+/tla2tools.jar" \
+            | sha256sum --check --status
+          echo "tla2tools.jar v${TLA_TOOLS_VERSION} verified."
+
+      - name: Show TLC version
+        run: |
+          set -euo pipefail
+          java -cp "$HOME/.local/opt/tla+/tla2tools.jar" tlc2.TLC -help 2>&1 \
+            | head -1 || true
+          java -version
+
+      - name: Run scripts/check-formal.sh
+        id: tlc
+        run: |
+          set -euo pipefail
+          # Point the script at the cached jar (under $HOME, the same
+          # location the local-dev install at ~/.local/opt/tla+/ uses),
+          # so script behaviour is identical to running it locally.
+          export TLC_JAR="$HOME/.local/opt/tla+/tla2tools.jar"
+          ./scripts/check-formal.sh | tee tlc-output.txt
+
+      - name: Publish TLC summary to job log
+        if: always()
+        run: |
+          set -euo pipefail
+          {
+            echo "### TLA+ model-checking (TLC 2.19, tla2tools.jar v${TLA_TOOLS_VERSION})"
+            echo ""
+            echo '```'
+            cat tlc-output.txt 2>/dev/null || echo "(tlc-output.txt missing)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload raw TLC output
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: tlc-output
+          path: tlc-output.txt
+          if-no-files-found: warn
+          retention-days: 30

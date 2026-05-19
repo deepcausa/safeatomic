@@ -22,6 +22,21 @@ Sections used:
 
 ### Added
 
+- CI: TLA+ model-checking of the three protocol specs.
+  - New workflow `.github/workflows/formal.yml`. Triggers on pushes to
+    `main` whose diff touches `formal/**`, `scripts/check-formal.sh` or
+    the workflow itself, and on `workflow_dispatch`. Per-PR runs are
+    intentionally not included to keep PR feedback fast.
+  - The job downloads `tla2tools.jar` v1.7.4 from the official TLA+
+    release, **verifies its SHA-256** against the value pinned in
+    `formal/README.md`, caches it (cache key includes the SHA-256 so a
+    version bump invalidates the cache), and runs
+    `scripts/check-formal.sh` end to end.
+  - TLC output is uploaded as the `tlc-output` artifact (30-day
+    retention) and inlined into `$GITHUB_STEP_SUMMARY`.
+  - The job times out at 10 minutes (TLC currently finishes in
+    well under a minute for all three specs on GitHub-hosted runners).
+- `README.md` shows a "Formal models (TLA+)" status badge.
 - CI: code coverage measurement and reporting.
   - `pytest` now runs with `--cov --cov-report=term-missing:skip-covered
     --cov-report=xml --cov-report=json` on both Python 3.12 and 3.13.
