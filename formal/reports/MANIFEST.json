@@ -1,0 +1,96 @@
+{
+  "project": "safeatomic",
+  "manifest_version": "1",
+  "generated_at": "2026-05-19T06:08:00Z",
+  "tool": {
+    "name": "TLC",
+    "version": "2.19 of 08 August 2024 (rev: 5a47802)",
+    "tla2tools": {
+      "upstream": "https://github.com/tlaplus/tlaplus",
+      "tag": "v1.7.4",
+      "tag_name": "The Xenophanes release",
+      "tag_date": "2024-08-05",
+      "asset": "tla2tools.jar",
+      "size_bytes": 2274532,
+      "sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+      "download_url": "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar"
+    }
+  },
+  "runtime": {
+    "java": "OpenJDK 21.0.11",
+    "os": "Linux 6.12.88+deb13-amd64 amd64"
+  },
+  "models": [
+    {
+      "name": "SafeAtomicSmoke",
+      "spec": "formal/SafeAtomicSmoke.tla",
+      "config": "formal/SafeAtomicSmoke.cfg",
+      "report": "formal/reports/2026-05-19-safeatomic-smoke.txt",
+      "invariants": [
+        "TypeInvariant",
+        "NoPartialTarget",
+        "ReadReturnsCommittedVersion"
+      ],
+      "states_generated": 51,
+      "distinct_states": 15,
+      "depth": 5,
+      "result": "no_error_found",
+      "tlc_exit_code": 0
+    },
+    {
+      "name": "SafeAtomicLock",
+      "spec": "formal/SafeAtomicLock.tla",
+      "config": "formal/SafeAtomicLock.cfg",
+      "report": "formal/reports/2026-05-19-safeatomic-lock.txt",
+      "invariants": [
+        "TypeInvariant",
+        "AtMostOneLiveLocalOwner",
+        "StaleReleaseOnlyWhenStale",
+        "ForceReleaseIsAdministrativeOverride",
+        "CorruptLockIsNotStaleRecovery",
+        "RemoteLockNotDeclaredPidStale"
+      ],
+      "states_generated": 28,
+      "distinct_states": 8,
+      "depth": 4,
+      "result": "no_error_found",
+      "tlc_exit_code": 0
+    },
+    {
+      "name": "SafeAtomicChecksum",
+      "spec": "formal/SafeAtomicChecksum.tla",
+      "config": "formal/SafeAtomicChecksum.cfg",
+      "report": "formal/reports/2026-05-19-safeatomic-checksum.txt",
+      "invariants": [
+        "TypeInvariant",
+        "ChecksumMatchImpliesHashConsistent",
+        "CorruptionDetectedAsMismatch",
+        "NoFalseMatchForWrongHash"
+      ],
+      "states_generated": 1548,
+      "distinct_states": 259,
+      "depth": 9,
+      "result": "no_error_found",
+      "tlc_exit_code": 0
+    }
+  ],
+  "claim": "The abstract core protocol was model-checked under documented assumptions. No counter-example was found for the listed invariants within the bounded state space TLC explored under these configurations.",
+  "does_not_verify": [
+    "the Python implementation in src/safeatomic/",
+    "operating systems (Linux, macOS, BSD, Windows)",
+    "filesystems (ext4, xfs, btrfs, tmpfs, apfs, ntfs, nfs, smb)",
+    "third-party serializers (PyYAML, ruamel.yaml, tomli_w, json)",
+    "hardware durability (fsync honesty, write barriers, drive cache)",
+    "deployment environments (containers, VMs, network mounts)",
+    "absence of implementation bugs",
+    "security against a malicious process with write access"
+  ],
+  "reproduce": {
+    "script": "scripts/check-formal.sh",
+    "requires": [
+      "Java 11+ on PATH",
+      "tla2tools.jar (download URL and SHA-256 above)",
+      "tlc wrapper at ~/.local/bin/tlc OR TLC_JAR env var pointing at tla2tools.jar"
+    ]
+  }
+}

@@ -1,0 +1,78 @@
+# Publish to PyPI when a GitHub Release is published.
+#
+# Trigger: create a Release on github.com/deepcausa/safeatomic with tag
+# `vX.Y.Z`. This workflow builds sdist + wheel, verifies the wheel does
+# not ship the `formal/` directory (it belongs in sdist only), and uploads
+# both artifacts to PyPI using the `PYPI_API_TOKEN` repository secret.
+
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build sdist and wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install build backend
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
+
+      - name: Build distributions
+        run: python -m build
+
+      - name: Verify sdist ships formal/ and wheel does not
+        run: |
+          set -euo pipefail
+          sdist=$(ls dist/*.tar.gz)
+          wheel=$(ls dist/*.whl)
+          echo "Inspecting $sdist"
+          if ! tar -tzf "$sdist" | grep -q '/formal/SafeAtomicSmoke.tla$'; then
+            echo "::error::sdist is missing formal/SafeAtomicSmoke.tla"
+            exit 1
+          fi
+          echo "Inspecting $wheel"
+          if unzip -l "$wheel" | grep -qE '(^|/)formal/'; then
+            echo "::error::wheel must not ship formal/ models"
+            exit 1
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/safeatomic/
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

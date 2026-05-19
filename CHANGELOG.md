@@ -22,6 +22,57 @@ Sections used:
 
 *(no changes yet)*
 
+## [2.0.1] - 2026-05-19
+
+First public release on GitHub + PyPI. No source code changes vs. 2.0.0.
+This bump ships the TLA+ models, model-checking runner, and supporting
+documentation alongside the package, and re-points project URLs at the
+canonical public repository.
+
+### Added
+
+- `formal/` directory shipped in the source distribution (excluded from
+  the wheel): three TLA+ models (`SafeAtomicSmoke.tla`,
+  `SafeAtomicLock.tla`, `SafeAtomicChecksum.tla`) with their `.cfg`
+  files, a `formal/README.md` orientation note, and
+  `formal/reports/MANIFEST.json` plus raw TLC stdout reports from the
+  canonical run (TLC 2.19, tla2tools v1.7.4
+  sha256 `936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88`,
+  OpenJDK 21.0.11). The MANIFEST records what each model proves and
+  explicitly lists what model-checking does **not** verify.
+- `scripts/check-formal.sh` — POSIX shell runner for the three models.
+  Honours `TLC_JAR` env var or `~/.local/bin/tlc` wrapper; writes to a
+  temp directory by default; `--update-reports` overwrites the committed
+  reports for canonical refresh. Documented exit codes.
+- `docs/formal-models.md` — overview of the three-layer evidence stack
+  (models fix the protocol contract; tests exercise the implementation;
+  runtime probes inspect the environment). Explicit "not formally
+  verified" framing.
+- `docs/fsync-policy-not-adopted.md` — pointer document explaining why
+  safeatomic does not expose a Redis-style `fsync_policy` knob, and where
+  that decision is recorded (ADR-0012 in the private design corpus).
+
+### Changed
+
+- `[project.urls]` re-pointed at `https://github.com/deepcausa/safeatomic`
+  (Homepage, Repository, Issues, Changelog).
+- `[tool.hatch.build.targets.sdist]` now also includes `formal/**` and
+  `scripts/**`. The wheel build target remains `src/safeatomic` only; a
+  comment in `pyproject.toml` documents this asymmetry.
+- README §"Formal model" replaced by §"Formal protocol models" that
+  points at the local `formal/` directory and `docs/formal-models.md`,
+  and explicitly states the wheel does not ship these models.
+- `tests/test_tla.py` reads the local `formal/` directory under the repo
+  root (no longer a sibling design corpus path), accepts a `TLC_JAR` env
+  var as an alternative to the `~/.local/bin/tlc` wrapper, and skips
+  cleanly when TLC or Java are unavailable.
+
+### Guarantees
+
+No change to the guarantee matrix. `__all__` remains frozen at 43 names
+(asserted at import time by `_EXPECTED_PUBLIC_NAMES = 43`). No new
+exception classes. No behaviour change in `src/safeatomic/`.
+
 ## [2.0.0] - 2026-05-18
 
 First stable v2 release. Public API frozen at 43 explicitly exported names.
@@ -141,5 +192,6 @@ when v2.0 ships):
 - XML and Pickle helpers removed; deferred to v2.1 with security review.
 - Minimum Python version raised to 3.12.
 
-[Unreleased]: https://example.invalid/safeatomic/compare/v2.0.0...HEAD
-[2.0.0]: https://example.invalid/safeatomic/releases/tag/v2.0.0
+[Unreleased]: https://github.com/deepcausa/safeatomic/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/deepcausa/safeatomic/releases/tag/v2.0.1
+[2.0.0]: https://github.com/deepcausa/safeatomic/releases/tag/v2.0.0

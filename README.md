@@ -205,22 +205,33 @@ contract.
 
 See [`docs/`](docs/) for the full reference.
 
-## Formal model
+## Formal protocol models
 
-The core protocol — atomic replacement, cooperative lock lifecycle,
-and checksum-sidecar verification — is model-checked with TLA+ under
-documented filesystem and runtime assumptions. The models live in the
-companion `safeatomic-project/formal/` directory and verify the
-abstract protocol only. They do **not** verify the Python
-implementation, the operating system, the filesystem, hardware, the
-serializers, or any deployment environment. `os.replace` atomicity,
-`fsync` durability, and PID semantics are assumptions of the model,
-not theorems about your machine.
+safeatomic includes small TLA+ models for its abstract core protocol:
 
-In practice this means: TLA+ fixes the contract; the test suite
-exercises the implementation against that contract; `doctor()` and
-`inspect_guarantees()` report the actual capabilities of the specific
-path you are using.
+- atomic replacement visibility (`SafeAtomicSmoke`);
+- cooperative lock lifecycle (`SafeAtomicLock`);
+- checksum sidecar verification (`SafeAtomicChecksum`).
+
+These models are checked with TLC under documented assumptions. They
+do **not** verify the Python implementation, operating systems,
+filesystems, serializers, hardware, or deployment environments.
+`os.replace` atomicity, `fsync` durability, and PID semantics are
+assumptions of the model, not theorems about your machine.
+
+The models, their configurations, the runner script, and the raw TLC
+output from the canonical run live in [`formal/`](formal/) and
+[`formal/reports/`](formal/reports/). A summary is in
+[`docs/formal-models.md`](docs/formal-models.md).
+
+In practice this means a three-layer evidence stack: TLA+ fixes the
+contract; the test suite exercises the implementation against that
+contract; `doctor()` and `inspect_guarantees()` report the actual
+capabilities of the specific path you are using.
+
+The `formal/` directory is included in the source distribution but
+excluded from the installed wheel, so `pip install safeatomic` stays
+code-only.
 
 ## What it is not
 

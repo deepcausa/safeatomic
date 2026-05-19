@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "safeatomic"
-version = "2.0.0"
+version = "2.0.1"
 description = "A safer persistence layer for plain files: atomic writes, cooperative locks, formal guarantees."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -70,15 +70,19 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://gitlab.dev.nonphy.tech/libs/safeatomic"
-Repository = "https://gitlab.dev.nonphy.tech/libs/safeatomic"
-Issues = "https://gitlab.dev.nonphy.tech/libs/safeatomic/-/issues"
-Changelog = "https://gitlab.dev.nonphy.tech/libs/safeatomic/-/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/deepcausa/safeatomic"
+Repository = "https://github.com/deepcausa/safeatomic"
+Issues = "https://github.com/deepcausa/safeatomic/issues"
+Changelog = "https://github.com/deepcausa/safeatomic/blob/main/CHANGELOG.md"
 
 [project.scripts]
 safeatomic = "safeatomic._cli_smoke:cli"
 
 [tool.hatch.build.targets.wheel]
+# Wheel contains only the Python package. Formal models, scripts, tests,
+# and documentation are intentionally excluded from the installed wheel
+# (they ship in the sdist and on GitLab, but `pip install safeatomic` is
+# code-only). See docs/formal-models.md § "Wheel packaging".
 packages = ["src/safeatomic"]
 
 [tool.hatch.build.targets.sdist]
@@ -86,6 +90,8 @@ include = [
     "src/safeatomic/**",
     "tests/**",
     "docs/**",
+    "formal/**",
+    "scripts/**",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",

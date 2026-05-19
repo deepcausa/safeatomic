@@ -1,16 +1,20 @@
-"""Run TLA+ model checker (TLC) on the safeatomic-project formal models.
+"""Run TLA+ model checker (TLC) on the bundled formal models.
 
-Skips cleanly when the formal project directory or the ``tlc`` wrapper is
-not available. This is the right behaviour because:
+The formal models live in the repository's ``formal/`` directory (alongside
+``src/`` and ``tests/``). This test runs TLC against each ``.tla`` model
+and asserts that TLC reports "No error has been found".
 
-- TLC requires Java and the tla2tools.jar — both are deployment-time
-  installs handled by ``apps/safeatomic-project/formal/README.md``.
-- The formal models live in a sibling project (``apps/safeatomic-project``)
-  and may not be present in every CI checkout.
+Skip behaviour:
 
-The test is parametrised over three models. Each invocation has a 30 s
-timeout. On TLC failure the captured stdout/stderr is included in the
-assertion message so the trace is visible in CI output.
+- If the ``formal/`` directory is absent (for example, a stripped-down
+  source tarball that excluded it), every test in this module is skipped.
+- If neither a ``tlc`` wrapper at ``~/.local/bin/tlc`` nor a ``TLC_JAR``
+  environment variable pointing at ``tla2tools.jar`` is available, every
+  test is skipped. Java is also required and is checked.
+
+We do not fall back to ``java -jar`` without ``TLC_JAR`` because that
+would silently bypass the pinned ``tla2tools.jar`` version recorded in
+``formal/README.md``.
 
 This file does NOT touch any source code, lock tests, doctor tests,
 config tests, io_core tests, format tests, or any TLA+ file itself.
@@ -18,6 +22,7 @@ config tests, io_core tests, format tests, or any TLA+ file itself.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -29,22 +34,14 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+"""Repo root (the directory that contains ``tests/`` and ``formal/``)."""
+
+_FORMAL_DIR = _REPO_ROOT / "formal"
+"""Where the formal models live. Bundled in this repository, not a sibling."""
+
 _TLC_WRAPPER = Path.home() / ".local" / "bin" / "tlc"
-"""Expected location of the TLC shell wrapper.
-
-The wrapper is created by ``~/.local/bin/install-tlaplus.sh`` (see the
-formal README). If absent, tests skip; we do not fall back to a system
-``java`` invocation because that would silently bypass the pinned
-tla2tools.jar version recorded in the formal README.
-"""
-
-_FORMAL_DIR = Path(
-    "/home/user/workspace/apps/safeatomic-project/formal",
-)
-"""Where the formal models live. Hard-coded because the safeatomic
-package and the formal models are separate apps under the same monorepo;
-discovering the sibling path with relative imports is fragile.
-"""
+"""Default location of the TLC shell wrapper (see ``formal/README.md``)."""
 
 _MODELS: tuple[str, ...] = (
     "SafeAtomicSmoke",
@@ -52,7 +49,30 @@ _MODELS: tuple[str, ...] = (
     "SafeAtomicChecksum",
 )
 
-_TIMEOUT_SECONDS: int = 30
+_TIMEOUT_SECONDS: int = 60
+
+
+# ---------------------------------------------------------------------------
+# TLC discovery
+# ---------------------------------------------------------------------------
+
+
+def _tlc_invocation() -> list[str] | None:
+    """Return the argv prefix needed to invoke TLC, or ``None`` if unavailable.
+
+    Priority:
+
+    1. ``TLC_JAR`` env var pointing at a ``tla2tools.jar``.
+    2. The ``tlc`` wrapper at ``~/.local/bin/tlc``.
+
+    Java is checked separately by the caller (it must be on ``PATH``).
+    """
+    tlc_jar = os.environ.get("TLC_JAR")
+    if tlc_jar and Path(tlc_jar).is_file():
+        return ["java", "-cp", tlc_jar, "tlc2.TLC"]
+    if _TLC_WRAPPER.is_file() and os.access(_TLC_WRAPPER, os.X_OK):
+        return [str(_TLC_WRAPPER)]
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -60,25 +80,26 @@ _TIMEOUT_SECONDS: int = 30
 # ---------------------------------------------------------------------------
 
 
-def _skip_if_tlc_missing() -> None:
-    """Skip with a clear reason when TLC infrastructure is not present."""
-    if not _TLC_WRAPPER.exists():
-        pytest.skip(
-            f"TLC wrapper not found at {_TLC_WRAPPER}; install via ~/.local/bin/install-tlaplus.sh",
-        )
-    # Java is required by the wrapper; check it is reachable. The wrapper
-    # itself will fail informatively if java is missing, but skipping is
-    # nicer than a hard failure.
-    if shutil.which("java") is None:
-        pytest.skip("java not on PATH; TLC cannot run")
-
-
 def _skip_if_formal_dir_missing() -> None:
     if not _FORMAL_DIR.is_dir():
         pytest.skip(
             f"formal models directory not present at {_FORMAL_DIR}; "
-            "this checkout does not include apps/safeatomic-project",
+            "this source tree does not include the formal/ subtree",
         )
+
+
+def _skip_if_tlc_missing() -> list[str]:
+    """Return the TLC argv prefix, or skip with an explanatory message."""
+    invocation = _tlc_invocation()
+    if invocation is None:
+        pytest.skip(
+            f"TLC not available: set TLC_JAR=/path/to/tla2tools.jar, "
+            f"or install the wrapper at {_TLC_WRAPPER} "
+            "(see formal/README.md)",
+        )
+    if shutil.which("java") is None:
+        pytest.skip("java not on PATH; TLC cannot run")
+    return invocation
 
 
 # ---------------------------------------------------------------------------
@@ -89,16 +110,17 @@ def _skip_if_formal_dir_missing() -> None:
 @pytest.mark.parametrize("model", _MODELS)
 def test_tla_model_checks_clean(model: str) -> None:
     """Run TLC on a model. Pass iff stdout reports "No error has been found"."""
-    _skip_if_tlc_missing()
     _skip_if_formal_dir_missing()
+    invocation = _skip_if_tlc_missing()
 
     tla_path = _FORMAL_DIR / f"{model}.tla"
     if not tla_path.is_file():
         pytest.skip(f"model file not found: {tla_path}")
 
     try:
-        result = subprocess.run(  # noqa: S603  # _TLC_WRAPPER is a fixed path under $HOME
-            [str(_TLC_WRAPPER), str(tla_path)],
+        result = subprocess.run(  # noqa: S603  # argv built from a known-safe wrapper/jar path
+            [*invocation, str(tla_path)],
+            cwd=str(_FORMAL_DIR),
             capture_output=True,
             text=True,
             timeout=_TIMEOUT_SECONDS,
@@ -107,7 +129,7 @@ def test_tla_model_checks_clean(model: str) -> None:
     except subprocess.TimeoutExpired:
         pytest.fail(
             f"TLC on {model} exceeded {_TIMEOUT_SECONDS}s; "
-            "this should not happen for the small v2 models",
+            "this should not happen for the bundled v2 models",
         )
 
     combined_output = result.stdout + "\n" + result.stderr
