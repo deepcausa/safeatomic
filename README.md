@@ -1,14 +1,30 @@
 # safeatomic
 
-> An atomic file persistence library for Python.
-> **Choose your guarantees. Compose them. Inspect them at runtime.**
+> Plain-file persistence for Python with explicit, composable, runtime-inspectable guarantees.
 
-`safeatomic` provides four orthogonal, opt-in guarantees for plain-file
-persistence — atomic visibility, crash durability, writer exclusion, and
-integrity detection — with each guarantee formally documented, composable
-per call, and inspectable at runtime against your actual filesystem.
+## The problem
 
-It sits between primitive `Path.write_text()` and full-fledged databases.
+```python
+# What this looks like:
+config_path.write_text(json.dumps(state))
+
+# What can actually happen:
+# - process crashes after truncate, before write completes -> empty file
+# - power loss after write returns -> data not yet on disk
+# - two processes write concurrently -> interleaved result
+# - cosmic ray / bad sector -> silent byte drift on read
+```
+
+`Path.write_text()` is a single syscall sequence. It is not a persistence
+protocol. For configuration, state, checkpoints, and any file you would be
+sad to lose, the application has to handle four separate concerns:
+**atomic visibility, crash durability, cooperative writer exclusion, and
+integrity detection**.
+
+Hand-rolling that protocol at every call site is how production code
+ends up with truncated config files and corrupted state.
+
+## The solution
 
 ```python
 from safeatomic import write_atomic, read_atomic, atomic_yaml_dump
@@ -24,6 +40,25 @@ data = read_atomic("config.json", check_checksum=True)
 # Format helpers compose atomic write with JSON / YAML / TOML.
 atomic_yaml_dump("settings.yaml", {"theme": "dark"})
 ```
+
+`safeatomic` packages the full atomic-write protocol — temp file, fsync,
+`os.replace`, parent-directory fsync, cooperative lock, optional checksum
+sidecar — behind one API. Each guarantee is opt-in, composable per call,
+and reported at runtime against your actual filesystem.
+
+## What it is, what it is not
+
+| | |
+|---|---|
+| **Scope** | one plain file at a time, on a local POSIX filesystem |
+| **Sits between** | `Path.write_text()` and SQLite / DuckDB / LMDB |
+| **Not** | a database, a query engine, a distributed lock, a WAL, an append log |
+| **Targets** | Linux + ext4/xfs/btrfs/tmpfs, macOS + APFS |
+| **NonTarget** | Windows, NFS, SMB, object stores |
+
+See [Alternatives](docs/alternatives.md) for when to use `safeatomic`
+versus `Path.write_text()`, lock libraries, SQLite, DuckDB,
+LMDB/RocksDB, or JSONL.
 
 ## The four guarantees
 

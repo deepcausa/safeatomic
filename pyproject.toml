@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "safeatomic"
 version = "2.0.2"
-description = "A safer persistence layer for plain files: atomic writes, cooperative locks, formal guarantees."
+description = "Plain-file persistence with explicit guarantees: atomic writes, cooperative locks, checksums, runtime environment inspection."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -15,21 +15,29 @@ authors = [
 ]
 keywords = [
     "atomic",
+    "atomic-write",
     "file",
+    "filesystem",
     "persistence",
+    "reliability",
     "lock",
+    "file-lock",
     "checksum",
     "fsync",
     "durability",
+    "crash-safe",
+    "tla-plus",
     "yaml",
     "json",
     "toml",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
     "Operating System :: POSIX",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: POSIX :: BSD",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -40,6 +48,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Filesystems",
+    "Topic :: System :: Archiving",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
     "Typing :: Typed",
 ]
 dependencies = [
@@ -71,6 +82,7 @@ all = [
 
 [project.urls]
 Homepage = "https://github.com/deepcausa/safeatomic"
+Documentation = "https://github.com/deepcausa/safeatomic/blob/main/docs/index.md"
 Repository = "https://github.com/deepcausa/safeatomic"
 Issues = "https://github.com/deepcausa/safeatomic/issues"
 Changelog = "https://github.com/deepcausa/safeatomic/blob/main/CHANGELOG.md"
