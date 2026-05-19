@@ -15,6 +15,10 @@
 - [Formal models](formal-models.md) — what the TLA+ models cover, what they don't, and how to reproduce the checks
 - [Why fsync\_policy was not adopted](fsync-policy-not-adopted.md) — ADR-0012 rationale
 
+## For contributors
+
+- [Development guide](development.md) — running coverage locally, running TLA+ model-checking locally, and what each README badge reports
+
 ## Other resources
 
 - [`README.md`](../README.md) — project overview, four guarantees, API surface, safety policy, environments

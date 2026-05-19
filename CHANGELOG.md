@@ -20,7 +20,15 @@ Sections used:
 
 ## [Unreleased]
 
-*(no changes yet)*
+### Added
+
+- `docs/development.md`: a contributor-facing guide covering how to
+  reproduce CI checks locally — `pytest --cov` invocations matching the
+  CI configuration, how to obtain and pin `tla2tools.jar` for running
+  `scripts/check-formal.sh`, expected TLC state counts for each model,
+  and a per-badge explanation of what the README badges report.
+- `docs/index.md`: new "For contributors" section linking the
+  development guide.
 
 ## [2.0.3] - 2026-05-19
 
