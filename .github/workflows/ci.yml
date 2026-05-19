@@ -59,5 +59,46 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e ".[test]"
 
-      - name: pytest
-        run: pytest -v --no-header
+      - name: pytest with coverage
+        run: |
+          pytest -v --no-header \
+            --cov \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml:coverage.xml \
+            --cov-report=json:coverage.json
+
+      - name: Coverage summary in job log
+        if: always()
+        run: |
+          python -c "
+          import json, pathlib
+          d = json.loads(pathlib.Path('coverage.json').read_text())
+          t = d['totals']
+          pct = t['percent_covered_display']
+          line = f\"### Coverage (Python ${{ matrix.python-version }}): {pct}%\n\n\"
+          line += f\"- Statements: {t['covered_lines']}/{t['num_statements']}\n\"
+          line += f\"- Branches:   {t['covered_branches']}/{t['num_branches']}\n\"
+          line += f\"- Missing:    {t['missing_lines']} lines, {t['num_partial_branches']} partial branches\n\"
+          pathlib.Path('$GITHUB_STEP_SUMMARY').write_text(line)
+          print(line)
+          "
+
+      - name: Upload coverage XML (Python 3.12 only)
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload coverage to Codecov (Python 3.12 only)
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+        with:
+          files: coverage.xml
+          flags: unittests
+          name: safeatomic-py3.12
+          fail_ci_if_error: false  # do not block CI on codecov outage
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

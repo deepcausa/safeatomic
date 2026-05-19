@@ -38,6 +38,7 @@ pip-delete-this-directory.txt
 htmlcov/
 .tox/
 .nox/
+coverage.json
 .coverage
 .coverage.*
 .cache
