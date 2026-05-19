@@ -8,6 +8,7 @@
 - [Doctor and environment inspection](doctor.md) — `inspect_guarantees` vs `doctor`, destructive probes, startup checks
 - [API reference](api-reference.md) — all 43 public names, by category
 - [Alternatives](alternatives.md) — when to use `safeatomic` versus `Path.write_text()`, lock libraries, SQLite, DuckDB, LMDB/RocksDB, or JSONL
+- [Troubleshooting](troubleshooting.md) — common errors, what they mean, and how to fix them
 
 ## Formal protocol models
 
