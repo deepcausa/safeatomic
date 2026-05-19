@@ -33,7 +33,17 @@ internal and may change without notice.
 
 from __future__ import annotations
 
-__version__ = "2.0.0"
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
+
+try:
+    __version__: str = _pkg_version("safeatomic")
+except PackageNotFoundError:  # pragma: no cover - editable/source-only fallback
+    # When the package is imported from a working tree without an
+    # installed dist-info (e.g. ``python -c "import safeatomic"`` from the
+    # source checkout), there is no metadata to read. We surface a clear
+    # sentinel rather than guess a number.
+    __version__ = "0.0.0+unknown"
 
 # ---------------------------------------------------------------------------
 # Re-exports (43 public names)
