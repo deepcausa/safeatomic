@@ -29,6 +29,28 @@ Sections used:
   and a per-badge explanation of what the README badges report.
 - `docs/index.md`: new "For contributors" section linking the
   development guide.
+- `AGENTS.md` at the repository root: a focused orientation file for
+  any agent or human opening the repository for the first time. It
+  collects, in one place, the seven hard invariants (frozen
+  `__all__`, eight guarantees, always-on `CrashDurability`,
+  cross-device errors, unspecified symlinks, no `fsync_policy`, the
+  four `safeatomic_config` keys), the six observed API surprises
+  (`concurrency='lock'` default, `try_acquire_lock` returns `bool`,
+  `check_checksum` kwarg name, bytes-only `AtomicWriter.write`,
+  `safeatomic_config` as context manager, explicit kwargs winning
+  over scope), the release flow, the branch-protection rules on
+  `main`, the family of related repositories, and the "don'ts".
+- `docs/release-process.md`: the canonical end-to-end release
+  procedure for maintainers — versioning policy, pre-flight, opening
+  the release PR, the GitHub Release, the manual PyPI deploy
+  approval, the post-publish smoke test, and rollback options
+  (yank vs. fix release). Linked from `CONTRIBUTING.md` and
+  `docs/index.md`.
+- `CONTRIBUTING.md`: a header pointer to `AGENTS.md` for first-time
+  contributors, a note on the Python 3.12 vs 3.13 CI matrix
+  (specifically the `pathlib.Path.resolve()` rewrite in 3.13 and the
+  monkeypatch-recursion pitfall it created), and a short
+  "Releasing" section linking to `docs/release-process.md`.
 
 ## [2.0.3] - 2026-05-19
 

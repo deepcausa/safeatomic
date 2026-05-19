@@ -18,6 +18,7 @@
 ## For contributors
 
 - [Development guide](development.md) — running coverage locally, running TLA+ model-checking locally, and what each README badge reports
+- [Release process](release-process.md) — the canonical procedure for cutting and publishing a release, for maintainers
 
 ## Other resources
 
