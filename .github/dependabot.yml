@@ -1,0 +1,31 @@
+# Dependabot configuration for safeatomic.
+#
+# We keep the runtime package dependency-free, so this file only covers
+# the GitHub Actions used in CI/release workflows. All actions are
+# SHA-pinned upstream; Dependabot opens PRs whenever a newer release is
+# tagged, including the version comment alongside the new SHA.
+#
+# Updates are weekly to avoid PR churn. Each PR targets `main` and is
+# subject to the same branch protection rules as any other change
+# (PR required + CI status checks).
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci)"
+      include: "scope"
+    groups:
+      actions:
+        patterns:
+          - "*"
