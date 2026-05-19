@@ -220,6 +220,11 @@ Use one of:
 sealed and replaced by a new active file, the rotation step is a
 whole-file replacement and is exactly what `write_atomic` is for.
 
+For append-only record logs in Rust, see the experimental sibling
+project [`datawal`](https://github.com/deepcausa/datawal): framed
+records with CRC-32C, valid-prefix recovery, tombstone deletes, and a
+bytes-based KV projection derived from the log.
+
 ---
 
 ## When `safeatomic` is the right tool
