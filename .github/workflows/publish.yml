@@ -35,7 +35,7 @@ jobs:
       - name: Build distributions
         run: python -m build
 
-      - name: Verify sdist ships formal/ and wheel does not
+      - name: Verify sdist payload and wheel exclusions
         run: |
           set -euo pipefail
           python - <<'PY'
@@ -56,6 +56,9 @@ jobs:
               "formal/SafeAtomicChecksum.tla",
               "scripts/check-formal.sh",
               "docs/formal-models.md",
+              "examples/README.md",
+              "examples/01_write_read_basic.py",
+              "examples/08_config_safety_policy.py",
           ]
           missing = [
               r for r in required
@@ -68,15 +71,22 @@ jobs:
           print(f"Inspecting {wheel}")
           with zipfile.ZipFile(wheel) as zf:
               wheel_names = zf.namelist()
-          leaked = [n for n in wheel_names if n.startswith("formal/") or "/formal/" in n]
+          forbidden_prefixes = ("formal/", "examples/", "tests/", "scripts/")
+          leaked = [
+              n for n in wheel_names
+              if any(
+                  n.startswith(p) or f"/{p}" in n
+                  for p in forbidden_prefixes
+              )
+          ]
           if leaked:
               print(
-                  f"::error::wheel must not ship formal/ models, found: {leaked}",
+                  f"::error::wheel must ship src/ only, leaked: {leaked}",
                   file=sys.stderr,
               )
               sys.exit(1)
 
-          print("OK: sdist contains formal/, wheel does not.")
+          print("OK: sdist payload complete, wheel free of non-src paths.")
           PY
 
       - name: Upload artifacts
