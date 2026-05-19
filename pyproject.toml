@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "safeatomic"
-version = "2.0.2"
+version = "2.0.3"
 description = "Plain-file persistence with explicit guarantees: atomic writes, cooperative locks, checksums, runtime environment inspection."
 readme = "README.md"
 requires-python = ">=3.12"

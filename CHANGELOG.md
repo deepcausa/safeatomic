@@ -20,6 +20,29 @@ Sections used:
 
 ## [Unreleased]
 
+*(no changes yet)*
+
+## [2.0.3] - 2026-05-19
+
+Quality-of-release bump. Fixes a stale `__version__` attribute and
+formalises the CI infrastructure assembled on top of 2.0.2 (coverage
+reporting, TLA+ model-checking on push, dependency automation, PyPI
+presence). No change to the public API: `__all__` remains frozen at the
+same 43 exported names asserted at import time by
+`_EXPECTED_PUBLIC_NAMES = 43`. No change to the guarantee matrix.
+
+### Fixed
+
+- `safeatomic.__version__` now reflects the installed distribution's
+  metadata via `importlib.metadata.version("safeatomic")`. Up to and
+  including 2.0.2, `__version__` was hard-coded in
+  `src/safeatomic/__init__.py` and had drifted to `"2.0.0"` while
+  PyPI metadata advanced to 2.0.2. A regression test
+  (`tests/test_package_metadata.py::test_version_matches_installed_distribution_metadata`)
+  pins the new contract. When the package is imported from a source
+  tree without an installed dist-info, `__version__` falls back to the
+  sentinel `"0.0.0+unknown"` rather than guessing.
+
 ### Added
 
 - CI: TLA+ model-checking of the three protocol specs.
@@ -36,7 +59,6 @@ Sections used:
     retention) and inlined into `$GITHUB_STEP_SUMMARY`.
   - The job times out at 10 minutes (TLC currently finishes in
     well under a minute for all three specs on GitHub-hosted runners).
-- `README.md` shows a "Formal models (TLA+)" status badge.
 - CI: code coverage measurement and reporting.
   - `pytest` now runs with `--cov --cov-report=term-missing:skip-covered
     --cov-report=xml --cov-report=json` on both Python 3.12 and 3.13.
@@ -48,7 +70,37 @@ Sections used:
     v7.0.1) and posts it to Codecov.
   - The Codecov upload uses `fail_ci_if_error: false` so a Codecov
     outage does not block CI.
-- `README.md` now also shows a Codecov badge.
+- CI: dependency automation via Dependabot.
+  - New `.github/dependabot.yml` watching the `github-actions`
+    ecosystem weekly (Monday 09:00 UTC), grouping all eligible bumps
+    into a single PR, labelled `dependencies` and `github-actions`,
+    with commit prefix `chore(ci)` and a 5-PR concurrency cap.
+- `README.md` badges across the top:
+  - PyPI version, Python versions, CI status, Codecov coverage,
+    "Formal models (TLA+)" status, MIT licence.
+- Documentation sweep:
+  - `docs/` reorganised for first-time visitors (positioning,
+    troubleshooting, issue templates, link audit).
+- `tests/test_package_metadata.py` (new): pins `__version__` matches
+  `importlib.metadata` and `__all__` size remains 43.
+- Issue #3 (`good first issue`): "Document destructive=True doctor()
+  usage in CI" — recipe and GHA snippet so users can exercise the
+  destructive probes (`create_excl_0600`, `fsync_file`, `fsync_dir`,
+  `atomic_replace`, `lock_sidecar`, `checksum_sidecar`) on their own
+  storage and post a summary to `$GITHUB_STEP_SUMMARY`.
+
+### Changed
+
+- `actions/upload-artifact` and `actions/download-artifact` bumped via
+  Dependabot to v7.0.1 / v8.0.1 respectively (publish workflow), and
+  v7.0.1 (ci workflow coverage artifact). All references stay
+  SHA-pinned.
+
+### Guarantees
+
+No change to the guarantee matrix. `__all__` still 43 names. No new
+exception classes. No behaviour change in `src/safeatomic/` beyond the
+`__version__` source.
 
 ## [2.0.2] - 2026-05-19
 
@@ -273,7 +325,8 @@ when v2.0 ships):
 - XML and Pickle helpers removed; deferred to v2.1 with security review.
 - Minimum Python version raised to 3.12.
 
-[Unreleased]: https://github.com/deepcausa/safeatomic/compare/v2.0.2...HEAD
+[Unreleased]: https://github.com/deepcausa/safeatomic/compare/v2.0.3...HEAD
+[2.0.3]: https://github.com/deepcausa/safeatomic/releases/tag/v2.0.3
 [2.0.2]: https://github.com/deepcausa/safeatomic/releases/tag/v2.0.2
 [2.0.1]: https://github.com/deepcausa/safeatomic/compare/v2.0.0...v2.0.2
 [2.0.0]: https://github.com/deepcausa/safeatomic/releases/tag/v2.0.0
