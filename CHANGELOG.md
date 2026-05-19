@@ -22,12 +22,65 @@ Sections used:
 
 *(no changes yet)*
 
-## [2.0.1] - 2026-05-19
+## [2.0.2] - 2026-05-19
 
-First public release on GitHub + PyPI. No source code changes vs. 2.0.0.
-This bump ships the TLA+ models, model-checking runner, and supporting
-documentation alongside the package, and re-points project URLs at the
-canonical public repository.
+First public release reaching PyPI. Documentation- and packaging-only
+bump on top of 2.0.1 (which lived as a GitHub release only and was never
+published to PyPI; that tag and release have been removed). No
+source-code changes vs. 2.0.1; the public surface remains frozen at the
+same 43 exported names asserted at import time by
+`_EXPECTED_PUBLIC_NAMES = 43`.
+
+### Added
+
+- `docs/` user-facing guide:
+  - `docs/index.md` — index linking every document and external resource
+  - `docs/getting-started.md` — installation and first write/read
+  - `docs/guarantees.md` — four primary and four supporting guarantees,
+    composability and limits
+  - `docs/supported-environments.md` — Tier 1/2/3 (NonTarget) matrix,
+    safety policy, symlinks
+  - `docs/doctor.md` — `inspect_guarantees` vs `doctor`, destructive
+    probes, usage patterns
+  - `docs/api-reference.md` — the 43 public names grouped by category,
+    one sentence each, with cross-links to examples
+- `examples/` runnable scripts (shipped in the sdist, excluded from the
+  wheel): eight progressive scripts (`01_write_read_basic` through
+  `08_config_safety_policy`) plus `examples/README.md` with the index
+  table and an "honest surprises" section.
+- Per-file ruff ignores for `examples/**` (`T20`, `D`, `S101`,
+  `PLR2004`, `TRY003`, `TRY301`, `BLE001`) so example code can use
+  `print` and `assert` without lint noise without relaxing rules
+  elsewhere.
+
+### Changed
+
+- `[tool.hatch.build.targets.sdist]` now also includes `examples/**`.
+  The wheel build target remains `src/safeatomic` only.
+- `.github/workflows/publish.yml` verify step extended:
+  - asserts the sdist contains `examples/README.md` and representative
+    example scripts in addition to `formal/`, `docs/formal-models.md`
+    and `scripts/check-formal.sh`;
+  - asserts the wheel ships none of `formal/`, `examples/`, `tests/`,
+    `scripts/` (previously only `formal/` was checked).
+- `README.md` "Docs" link now points directly at `docs/index.md`.
+
+### Guarantees
+
+No change to the guarantee matrix. `__all__` remains frozen at 43 names.
+No new exception classes. No behaviour change in `src/safeatomic/`.
+
+## [2.0.1] - 2026-05-19 [withdrawn]
+
+> **Not published to PyPI.** This version existed as a GitHub release
+> only; the release and tag were deleted before publication when a
+> packaging-verification bug was discovered. The fixes and additions
+> below are included in 2.0.2.
+
+No source code changes vs. 2.0.0. This bump shipped the TLA+ models,
+model-checking runner, and supporting documentation alongside the
+package, and re-pointed project URLs at the canonical public
+repository.
 
 ### Added
 
@@ -192,6 +245,7 @@ when v2.0 ships):
 - XML and Pickle helpers removed; deferred to v2.1 with security review.
 - Minimum Python version raised to 3.12.
 
-[Unreleased]: https://github.com/deepcausa/safeatomic/compare/v2.0.1...HEAD
-[2.0.1]: https://github.com/deepcausa/safeatomic/releases/tag/v2.0.1
+[Unreleased]: https://github.com/deepcausa/safeatomic/compare/v2.0.2...HEAD
+[2.0.2]: https://github.com/deepcausa/safeatomic/releases/tag/v2.0.2
+[2.0.1]: https://github.com/deepcausa/safeatomic/compare/v2.0.0...v2.0.2
 [2.0.0]: https://github.com/deepcausa/safeatomic/releases/tag/v2.0.0

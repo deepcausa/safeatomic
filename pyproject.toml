@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "safeatomic"
-version = "2.0.1"
+version = "2.0.2"
 description = "A safer persistence layer for plain files: atomic writes, cooperative locks, formal guarantees."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -90,6 +90,7 @@ include = [
     "src/safeatomic/**",
     "tests/**",
     "docs/**",
+    "examples/**",
     "formal/**",
     "scripts/**",
     "README.md",
@@ -164,6 +165,15 @@ ignore = [
 ]
 "src/safeatomic/_cli_smoke.py" = [
     "T20",    # print() allowed in CLI
+]
+"examples/**" = [
+    "T20",    # print() is the point of an example
+    "D",      # no docstring enforcement on example helpers
+    "S101",   # assert is fine in examples
+    "PLR2004", # magic values are fine in examples
+    "TRY003", # long error messages are fine in examples
+    "TRY301", # raise inside try is fine in examples
+    "BLE001", # broad except is intentional when showcasing exceptions
 ]
 
 [tool.ruff.lint.pydocstyle]
