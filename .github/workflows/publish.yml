@@ -38,18 +38,46 @@ jobs:
       - name: Verify sdist ships formal/ and wheel does not
         run: |
           set -euo pipefail
-          sdist=$(ls dist/*.tar.gz)
-          wheel=$(ls dist/*.whl)
-          echo "Inspecting $sdist"
-          if ! tar -tzf "$sdist" | grep -q '/formal/SafeAtomicSmoke.tla$'; then
-            echo "::error::sdist is missing formal/SafeAtomicSmoke.tla"
-            exit 1
-          fi
-          echo "Inspecting $wheel"
-          if unzip -l "$wheel" | grep -qE '(^|/)formal/'; then
-            echo "::error::wheel must not ship formal/ models"
-            exit 1
-          fi
+          python - <<'PY'
+          import glob
+          import sys
+          import tarfile
+          import zipfile
+
+          (sdist,) = glob.glob("dist/*.tar.gz")
+          (wheel,) = glob.glob("dist/*.whl")
+
+          print(f"Inspecting {sdist}")
+          with tarfile.open(sdist, "r:gz") as tf:
+              sdist_names = tf.getnames()
+          required = [
+              "formal/SafeAtomicSmoke.tla",
+              "formal/SafeAtomicLock.tla",
+              "formal/SafeAtomicChecksum.tla",
+              "scripts/check-formal.sh",
+              "docs/formal-models.md",
+          ]
+          missing = [
+              r for r in required
+              if not any(n.endswith("/" + r) or n == r for n in sdist_names)
+          ]
+          if missing:
+              print(f"::error::sdist is missing: {missing}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"Inspecting {wheel}")
+          with zipfile.ZipFile(wheel) as zf:
+              wheel_names = zf.namelist()
+          leaked = [n for n in wheel_names if n.startswith("formal/") or "/formal/" in n]
+          if leaked:
+              print(
+                  f"::error::wheel must not ship formal/ models, found: {leaked}",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          print("OK: sdist contains formal/, wheel does not.")
+          PY
 
       - name: Upload artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
