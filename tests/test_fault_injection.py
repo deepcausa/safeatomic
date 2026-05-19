@@ -561,18 +561,27 @@ def test_move_atomic_raises_cross_device_when_devices_differ(
     dst = tmp_path / "dst.txt"
 
     real_stat = Path.stat
-    src_resolved = src.resolve()
-    dst_parent_resolved = dst.parent.resolve()
+    # Pre-compute both raw and resolved string forms of the paths we care
+    # about. We MUST NOT call ``self.resolve()`` inside ``lying_stat``:
+    # on CPython 3.12, ``Path.resolve()`` internally calls ``Path.stat()``
+    # for symlink resolution, which would recurse through our monkeypatch
+    # and corrupt PosixPath internal state (cleared ``_str``/``_drv``),
+    # subsequently causing pytest's traceback formatter to raise
+    # INTERNALERROR. CPython 3.13 rewrote pathlib.resolve and no longer
+    # exercises that path, hence the version asymmetry.
+    src_keys = frozenset({str(src), str(src.resolve())})
+    dst_parent_keys = frozenset({str(dst.parent), str(dst.parent.resolve())})
 
     def lying_stat(self: Path, *, follow_symlinks: bool = True) -> os.stat_result:
         rs = real_stat(self, follow_symlinks=follow_symlinks)
-        if self.resolve() == src_resolved:
+        key = str(self)
+        if key in src_keys:
             # Force st_dev to differ. os.stat_result is immutable so we
             # construct a new one via the public 10-tuple ctor.
             fields = list(rs)
             fields[2] = rs.st_dev + 1  # type: ignore[assignment]
             return os.stat_result(fields)
-        if self.resolve() == dst_parent_resolved:
+        if key in dst_parent_keys:
             return rs
         return rs
 
