@@ -165,3 +165,55 @@ for name, check in report.checks.items():
 If you need a fast check before every write, use `inspect_guarantees`.
 If you need confidence that the specific mount point actually behaves as
 expected, use `doctor` with `destructive=True`.
+
+---
+
+## CI integration
+
+You can run `doctor(destructive=True)` in your CI workflow to validate that the GitHub Actions runner filesystem supports safeatomic's guarantees, and catch regressions early when runner environments change.
+
+### Example GitHub Actions workflow
+
+Add this to `.github/workflows/safeatomic-doctor.yml`:
+```yaml
+name: Safeatomic Environment Check
+on: [push, pull_request]
+
+jobs:
+  doctor-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10+"
+      - name: Install safeatomic
+        run: pip install safeatomic
+      - name: Run doctor check
+        run: |
+          import os
+          import tempfile
+          import safeatomic
+          
+          with tempfile.TemporaryDirectory() as tmpdir:
+              report = safeatomic.doctor(f"{tmpdir}/test.state", destructive=True)
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+                  f.write("# Safeatomic Doctor Report\n\n")
+                  f.write(report.summary() + "\n\n")
+              
+              # Optional: fail if any required guarantees are not met
+              required = {"AtomicVisibility", "CrashDurability", "WriterExclusion"}
+              missing = required - {g for g, level in report.guarantees.items() if level == "Guaranteed"}
+              if missing:
+                  print(f"Missing required guarantees: {missing}")
+                  exit(1)
+        shell: python
+```
+
+### Notes
+- The check uses a temporary directory (`tempfile.TemporaryDirectory()`) which is safe for destructive probes — no user state is modified.
+- The report is rendered into the GitHub Actions Job Summary, so you can see the full results directly in the workflow run page.
+- The results reflect the **runner environment**, not your production environment. This is still useful because:
+  - It catches unexpected changes to GitHub's runner filesystem semantics that could break your application
+  - It validates that safeatomic works correctly on the operating system/distribution you use for CI
+  - If you use the same OS/distribution for CI and production, it gives you high confidence that safeatomic will work as expected in production
