@@ -203,7 +203,7 @@ contract.
 - **Config (1):** `safeatomic_config` — `ContextVar`-backed defaults for `encoding`, `checksum_algo`, `retries`, `delay`. Guarantee-affecting kwargs (`safety`, `concurrency`, `preserve_metadata`, `write_checksum`) cannot be set via config and must remain explicit at call sites.
 - **Exceptions + warnings (6):** `SafeAtomicError`, `UnsupportedEnvironmentError`, `UnsupportedEnvironmentWarning`, `ChecksumMismatchError`, `CrossDeviceAtomicityError`, `LockError`
 
-See [`docs/`](docs/) for the full reference.
+See [`docs/index.md`](docs/index.md) for the full reference.
 
 ## Formal protocol models
 
