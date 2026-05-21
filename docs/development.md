@@ -62,6 +62,51 @@ availability event. The historical baseline on Python 3.13 is around
 
 ---
 
+## Running `doctor` with `destructive=True` in CI
+
+The test suite in CI runs with `destructive=False` (the default) so it
+does not exercise the six write probes. To run the full `doctor`
+diagnostic with `destructive=True`, use a **temporary directory** such as
+`tempfile.gettempdir()` or a tmpfs mount — never a directory that holds
+user state.
+
+```python
+from safeatomic import doctor
+import tempfile, sys
+
+tmp = tempfile.gettempdir()
+report = doctor(f"{tmp}/safeatomic-check", destructive=True)
+print(report.summary(), file=sys.stderr)
+assert report.ok, f"environment check failed: {report.summary()}"
+```
+
+In a GitHub Actions workflow, add a step after the normal test job:
+
+```yaml
+- name: Destructive environment probe
+  run: |
+    python -c "
+    from safeatomic import doctor, UnsupportedEnvironmentError
+    import tempfile, sys
+    report = doctor(f'{tempfile.gettempdir()}/safeatomic-check', destructive=True)
+    print(report.summary(), file=sys.stderr)
+    if not report.ok:
+        raise SystemExit(1)
+    "
+```
+
+This is safe in CI because the temporary directory is cleared between
+runs. The probe exercises `create_excl_0600`, `fsync_file`,
+`fsync_dir`, `atomic_replace`, `lock_sidecar`, and `checksum_sidecar`
+— all of which are reported as `unknown` in the normal test suite.
+
+See [`doctor.md`](doctor.md) for the full reference on `doctor` and the
+meaning of each probe.
+
+---
+
+## Running TLA+ model-checking locally
+
 ## Running TLA+ model-checking locally
 
 The repository ships three TLC-checkable protocol specs under
